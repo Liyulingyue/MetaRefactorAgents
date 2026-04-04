@@ -1,35 +1,60 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
+import httpx
+import os
 from app.core.config import settings
-from app.routers import agent, health
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description="MetaRefactorAgents - A flexible agent refactoring framework",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url=f"{settings.API_V1_STR}/docs",
-    redoc_url=f"{settings.API_V1_STR}/redoc",
-)
+app = FastAPI(title="MRA Gateway")
 
-# Set all CORS enabled origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# 存储活跃 Agent 的映射: {agent_id: port}
+AGENT_REGISTRY = {
+    "Agent-01": 8001,
+    "Agent-02": 8002,
+}
 
-# Include all API routes
-app.include_router(health.router, prefix=settings.API_V1_STR, tags=["system"])
-app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
+@app.get("/api/agents")
+async def list_agents():
+    """获取所有活跃 Agent 列表"""
+    return [{"id": k, "port": v, "url": f"http://localhost:{v}"} for k, v in AGENT_REGISTRY.items()]
 
-@app.get("/", tags=["root"])
-async def root():
-    return {
-        "message": f"Welcome to {settings.PROJECT_NAME}",
-        "version": settings.VERSION,
-        "docs": f"{settings.API_V1_STR}/docs"
-    }
+@app.api_route("/api/agents/{agent_id}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_to_agent(agent_id: str, path: str, request: Request):
+    """路由网关：将请求转发到对应 Agent 的端口"""
+    if agent_id not in AGENT_REGISTRY:
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+    
+    port = AGENT_REGISTRY[agent_id]
+    target_url = f"http://localhost:{port}/api/v1/{path}"
+    
+    async with httpx.AsyncClient() as client:
+        # 复制请求方法、内容和查询参数
+        content = await request.body()
+        params = request.query_params
+        headers = dict(request.headers)
+        # 移除 host 以免冲突
+        headers.pop("host", None)
+        
+        try:
+            resp = await client.request(
+                method=request.method,
+                url=target_url,
+                params=params,
+                content=content,
+                headers=headers,
+                timeout=60.0 # Agent 任务可能较长
+            )
+            return JSONResponse(
+                content=resp.json(),
+                status_code=resp.status_code,
+                headers=dict(resp.headers)
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Error forwarding to agent: {str(e)}")
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "gateway"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

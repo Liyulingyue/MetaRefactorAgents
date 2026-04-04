@@ -35,18 +35,15 @@ MRA 启动时仅需两个初始节点（Lineage-1 & Lineage-2）。通过不断�
 
 ```bash
 MRA/
-├── core/
-│   ├── refactor_engine.py   # 核心驱动：负责源码读写与进程管理
-│   ├── shell_executor.py    # Bash 指令封装
-│   └── lineage_manager.py   # 节点血统与版本控制
-├── agents/
-│   ├── lineage_1.py         # 初始引导节点
-│   └── lineage_2.py         # 初始协作节点
-├── api/                     # FastAPI 路由映射
-├── web/                     # React 可视化前端
-├── backups/                 # 自动存放源码备份 (.bak)
-└── workspace/               # Agent 自主存放临时演化脚本的沙箱
+├── app/             # Gateway: 统一路由与 Agent 进程生命周期管理
+├── template/        # Seeds: Agent 的初始源码模板
+│   └── default/     # 默认 Python/FastAPI 智能体模板
+├── workspace/       # Agents: 活跃智能体的生存空间 (Agent-01, Agent-02...)
+├── web/             # Dashboard: 基于 React 的上帝视角看板
+├── run.py           # 入口脚本：启动 Gateway
+└── requirements.txt # 全局依赖
 ```
+
 
 ---
 

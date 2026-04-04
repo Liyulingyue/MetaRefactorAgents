@@ -16,7 +16,7 @@ def main():
     print(f"📍 URL: http://{args.host}:{args.port}")
     print(f"🛠️  Reload: {args.reload}")
     
-    # 直接运行网关应用实例
+    # 直接运行应用实例，支持热重载
     uvicorn.run(
         "app.main:app", 
         host=args.host, 

@@ -5,6 +5,7 @@ reference/
 __pycache__/
 *.py[cod]
 .vscode/
-*.log
+*.l
 
-
+workspace/*
+!workspace/.gitkeep

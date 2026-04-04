@@ -1,30 +1,19 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "MetaRefactorAgents"
+    PROJECT_NAME: str = "MRA-Gateway"
     VERSION: str = "1.0.0"
-    API_V1_STR: str = "/api/v1"
-    
-    # LLM Settings
-    OPENAI_API_KEY: str = "EMPTY"
-    OPENAI_URL: str = "https://api.openai.com/v1"
-    OPENAI_MODEL_NAME: str = "gpt-4o-mini"
-    
-    # Server Settings
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     RELOAD: bool = True
-
-    # Workspace Settings
-    WORKSPACE_ROOT: str = "./workspace"
-    ACTIVE_TEMPLATE: str = "default"
+    
+    # 以后可以扩展为从数据库或文件读取
+    WORKSPACE_DIR: str = "workspace"
+    TEMPLATE_DIR: str = "template"
 
     model_config = {
         "env_file": ".env",
-        "case_sensitive": True,
-        "extra": "ignore",
-        "env_file_encoding": "utf-8"
+        "extra": "ignore"
     }
 
 settings = Settings()
