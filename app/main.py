@@ -54,8 +54,8 @@ async def list_agents():
 
     if os.path.exists(workspace_dir):
         for folder in os.listdir(workspace_dir):
-            # 过滤逻辑：排除非 Agent 目录或特定的 shared_files 目录
-            if folder == "shared_files" or folder.startswith("."):
+            # 过滤逻辑：排除非 Agent 目录或特定的 .shared 目录
+            if folder == ".shared" or folder.startswith("."):
                 continue
                 
             if os.path.isdir(os.path.join(workspace_dir, folder)):
@@ -96,6 +96,8 @@ async def list_agents():
 @app.api_route("/api/agents/{agent_id}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def proxy_to_agent(agent_id: str, path: str, request: Request):
     """路由网关"""
+    if agent_id == "admin":
+        raise HTTPException(status_code=404, detail="Agent not found")
     if agent_id not in AGENT_PROCESSES or AGENT_PROCESSES[agent_id]["status"] != "Running":
          raise HTTPException(status_code=404, detail=f"Agent {agent_id} is not running")
     

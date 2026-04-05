@@ -44,6 +44,15 @@ export const agentApi = {
     return res.data.files;
   },
 
+  uploadSharedFile: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await gateway.post('/admin/shared/files/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
   getDownloadUrl: (agentId: string, path: string): string => {
     return `/api/admin/${agentId}/files/download?path=${encodeURIComponent(path)}`;
   },

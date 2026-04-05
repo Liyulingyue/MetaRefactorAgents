@@ -1,6 +1,7 @@
 import os
 import signal
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from fastapi.responses import FileResponse
 from app.core.manager import init_agent_workspace, start_agent_process
 from pydantic import BaseModel
 from typing import Optional
@@ -90,48 +91,10 @@ async def get_agent_logs(agent_id: str, lines: int = 100):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/{agent_id}/thoughts")
-async def get_agent_thoughts(agent_id: str):
-    """获取 Agent 的内部思维日志 (thoughts.md)"""
-    thought_path = f"workspace/{agent_id}/logs/thoughts.md"
-    if not os.path.exists(thought_path):
-        return {"thoughts": f"Thought log not found at {thought_path}"}
-    
-    try:
-        with open(thought_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            return {"thoughts": content}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-@router.get("/{agent_id}/files")
-async def list_agent_files(agent_id: str):
-    """获取 Agent 工作目录下的文件列表 (排除 logs 和 pycache)"""
-    agent_root = f"workspace/{agent_id}"
-    if not os.path.exists(agent_root):
-        raise HTTPException(status_code=404, detail="Agent workspace not found")
-    
-    files = []
-    for root, dirs, filenames in os.walk(agent_root):
-        # 排除不需要显示的目录
-        if "logs" in dirs:
-            dirs.remove("logs")
-        if "__pycache__" in dirs:
-            dirs.remove("__pycache__")
-            
-        for f in filenames:
-            rel_path = os.path.relpath(os.path.join(root, f), agent_root)
-            files.append({
-                "name": f,
-                "path": rel_path,
-                "size": os.path.getsize(os.path.join(root, f)),
-                "mtime": os.path.getmtime(os.path.join(root, f))
-            })
-    return {"files": files}
-
 @router.get("/shared/files")
 async def list_shared_files():
     """获取公共文件区的文件列表"""
-    shared_root = "workspace/shared_files"
+    shared_root = "workspace/.shared"
     if not os.path.exists(shared_root):
         os.makedirs(shared_root, exist_ok=True)
     
@@ -147,7 +110,72 @@ async def list_shared_files():
             })
     return {"files": files}
 
+@router.get("/{agent_id}/thoughts")
+async def get_agent_thoughts(agent_id: str):
+    """获取 Agent 的内部思维日志 (thoughts.md)"""
+    thought_path = f"workspace/{agent_id}/logs/thoughts.md"
+    if not os.path.exists(thought_path):
+        return {"thoughts": f"Thought log not found at {thought_path}"}
+    
+    try:
+        with open(thought_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            return {"thoughts": content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/shared/files/upload")
+async def upload_shared_file(file: UploadFile = File(...)):
+    """上传文件到公共文件区"""
+    shared_root = "workspace/.shared"
+    os.makedirs(shared_root, exist_ok=True)
+    
+    dest_path = os.path.join(shared_root, file.filename)
+    with open(dest_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+    
+    return {
+        "status": "success",
+        "name": file.filename,
+        "path": file.filename,
+        "size": len(content),
+        "mtime": os.path.getmtime(dest_path)
+    }
+
 from fastapi.responses import FileResponse
+
+@router.get("/shared/files/download")
+async def download_shared_file(path: str):
+    """下载公共文件区的文件"""
+    file_full_path = os.path.join("workspace/.shared", path)
+    if not os.path.exists(file_full_path) or not os.path.isfile(file_full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(file_full_path, filename=os.path.basename(file_full_path))
+
+@router.get("/{agent_id}/files")
+async def list_agent_files(agent_id: str):
+    """获取 Agent 工作目录下的文件列表 (排除 logs 和 pycache)"""
+    agent_root = f"workspace/{agent_id}"
+    if not os.path.exists(agent_root):
+        raise HTTPException(status_code=404, detail="Agent workspace not found")
+    
+    files = []
+    for root, dirs, filenames in os.walk(agent_root):
+        if "logs" in dirs:
+            dirs.remove("logs")
+        if "__pycache__" in dirs:
+            dirs.remove("__pycache__")
+            
+        for f in filenames:
+            rel_path = os.path.relpath(os.path.join(root, f), agent_root)
+            files.append({
+                "name": f,
+                "path": rel_path,
+                "size": os.path.getsize(os.path.join(root, f)),
+                "mtime": os.path.getmtime(os.path.join(root, f))
+            })
+    return {"files": files}
 
 @router.get("/{agent_id}/files/download")
 async def download_agent_file(agent_id: str, path: str):
@@ -161,14 +189,6 @@ async def download_agent_file(agent_id: str, path: str):
         
     return FileResponse(file_full_path, filename=os.path.basename(file_full_path))
 
-@router.get("/shared/files/download")
-async def download_shared_file(path: str):
-    """下载公共文件区的文件"""
-    file_full_path = os.path.join("workspace/shared_files", path)
-    if not os.path.exists(file_full_path) or not os.path.isfile(file_full_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    return FileResponse(file_full_path, filename=os.path.basename(file_full_path))
 class AgentConfigUpdate(BaseModel):
     allow_cors: Optional[bool] = None
 

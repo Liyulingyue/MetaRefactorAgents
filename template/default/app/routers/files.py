@@ -36,8 +36,8 @@ async def publish_file(path: str):
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="File not found")
     
-    # 确保共享目录存在 (相对于 agent 来说是 ../shared_files/)
-    shared_dir = os.path.abspath(os.path.join(os.getcwd(), "../shared_files"))
+    # 确保共享目录存在 (相对于 agent 来说是 ../.shared/)
+    shared_dir = os.path.abspath(os.path.join(os.getcwd(), "../.shared"))
     os.makedirs(shared_dir, exist_ok=True)
     
     filename = os.path.basename(path)
