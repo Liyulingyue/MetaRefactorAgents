@@ -1,203 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
-  Send, User, Bot, Loader2, ChevronLeft, Trash2,
-  FolderOpen, Eye, EyeOff, FileText, Download, X,
-  Maximize2, Folder, Layout, RefreshCw, ChevronRight, File
+  Eye, X,
+  Folder, RefreshCw
 } from 'lucide-react';
 import { agentApi } from '../api/client';
 import type { Agent, Message } from '../types';
-
-const STORAGE_KEY = 'chat_histories';
-
-type FileNode = {
-  name: string;
-  path: string;
-  isDir: boolean;
-  children: FileNode[];
-};
-
-const buildFileTree = (files: any[]): FileNode[] => {
-  const root: FileNode[] = [];
-  for (const f of files) {
-    const parts = f.path.split('/').filter(Boolean);
-    let cur = root;
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
-      const isLast = i === parts.length - 1;
-      const existing = cur.find(n => n.name === part);
-      if (existing) {
-        cur = existing.children;
-      } else {
-        const node: FileNode = { name: part, path: parts.slice(0, i + 1).join('/'), isDir: !isLast, children: [] };
-        cur.push(node);
-        cur = node.children;
-      }
-    }
-  }
-  const sort = (nodes: FileNode[]) => {
-    nodes.sort((a, b) => {
-      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
-    nodes.forEach(n => sort(n.children));
-  };
-  sort(root);
-  return root;
-};
-
-function FileTreeNode({ node, depth, onSelect, selectedPath }: { node: FileNode; depth: number; onSelect: (path: string, name: string) => void; selectedPath: string }) {
-  const [expanded, setExpanded] = useState(true);
-  const isSelected = node.path === selectedPath;
-  const isDir = node.isDir;
-
-  return (
-    <>
-      <div
-        onClick={() => {
-          if (isDir) {
-            setExpanded(!expanded);
-          } else {
-            onSelect(node.path, node.name);
-          }
-        }}
-        style={{
-          padding: '5px 8px',
-          paddingLeft: `${8 + depth * 14}px`,
-          borderRadius: '6px',
-          fontSize: '13px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          background: isSelected ? 'var(--accent-transparent)' : 'transparent',
-          color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
-          userSelect: 'none',
-        }}
-      >
-        {isDir ? (
-          <>
-            <ChevronRight size={12} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }} />
-            <Folder size={14} style={{ flexShrink: 0 }} />
-          </>
-        ) : (
-          <>
-            <FileText size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
-          </>
-        )}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
-      </div>
-      {isDir && expanded && node.children.map(child => (
-        <FileTreeNode key={child.path} node={child} depth={depth + 1} onSelect={onSelect} selectedPath={selectedPath} />
-      ))}
-    </>
-  );
-}
-
-function Resizer({ onDrag, direction = 'horizontal' }: { onDrag: (delta: number) => void, direction?: 'horizontal' | 'vertical' }) {
-  const isDragging = useRef(false);
-  const startPos = useRef(0);
-  const [localDragging, setLocalDragging] = useState(false);
-
-  const onMouseDown = (e: React.MouseEvent) => {
-    isDragging.current = true;
-    setLocalDragging(true);
-    startPos.current = direction === 'horizontal' ? e.clientX : e.clientY;
-    
-    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
-    document.body.style.userSelect = 'none';
-    document.body.classList.add('resizing-global');
-
-    const onMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return;
-      const currentPos = direction === 'horizontal' ? ev.clientX : ev.clientY;
-      const delta = currentPos - startPos.current;
-      onDrag(delta);
-      
-      startPos.current = currentPos;
-    };
-    
-    const onUp = () => {
-      isDragging.current = false;
-      setLocalDragging(false);
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.body.classList.remove('resizing-global');
-    };
-    
-    document.addEventListener('mousemove', onMove, { passive: true });
-    document.addEventListener('mouseup', onUp);
-  };
-
-  return (
-    <div
-      onMouseDown={onMouseDown}
-      style={{
-        width: direction === 'horizontal' ? '12px' : '100%',
-        height: direction === 'horizontal' ? '100%' : '12px',
-        cursor: direction === 'horizontal' ? 'col-resize' : 'row-resize',
-        background: 'transparent',
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 200,
-        position: 'relative',
-        margin: direction === 'horizontal' ? '0 -6px' : '-6px 0',
-      }}
-    >
-      <div style={{
-        width: direction === 'horizontal' ? (localDragging ? '4px' : '2px') : (localDragging ? '40px' : '40px'),
-        height: direction === 'horizontal' ? (localDragging ? '40px' : '40px') : (localDragging ? '4px' : '2px'),
-        borderRadius: '4px',
-        background: localDragging ? 'var(--accent)' : 'var(--border)',
-        transition: 'background 0.15s, width 0.15s, height 0.15s',
-      }} className="resizer-handle" />
-      <style>{`
-        .resizer-handle:not(.active):hover {
-          background: var(--accent) !important;
-          width: ${direction === 'horizontal' ? '4px' : '40px'} !important;
-          height: ${direction === 'horizontal' ? '40px' : '4px'} !important;
-        }
-        body.resizing-global * {
-          pointer-events: none !important;
-        }
-        body.resizing-global [onmousedown] {
-          pointer-events: auto !important;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-const loadHistories = (): Record<string, Message[]> => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
-  } catch (e) {
-    return {};
-  }
-};
-
-const saveHistories = (histories: Record<string, Message[]>) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(histories));
-  } catch (e) {
-    console.error('Failed to save chat history', e);
-  }
-};
-
-function SimpleMarkdown({ content }: { content: string }) {
-  return (
-    <div style={{ padding: '20px', lineHeight: 1.6, overflow: 'auto', height: '100%' }}>
-      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: '14px', color: 'var(--text-primary)' }}>
-        {content}
-      </pre>
-    </div>
-  );
-}
+import { Resizer } from '../components/Resizer';
+import { FileTree } from '../components/FileTree';
+import { CodePreview } from '../components/CodePreview';
+import { useChatHistory } from '../hooks/useChatHistory';
+import { ChatHeader } from '../components/chat/ChatHeader';
+import { MessageList } from '../components/chat/MessageList';
+import { ChatInput } from '../components/chat/ChatInput';
 
 export default function Chat() {
   const { agentId } = useParams<{ agentId?: string }>();
@@ -216,29 +31,23 @@ export default function Chat() {
   const [previewFile, setPreviewFile] = useState<{ name: string, content: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
 
-  // 这里的布局逻辑优化点：
-  // 1. 中间 Chat 区自动撑满 (flex: 1)
-  // 2. 左侧 Preview 区和右侧 Files 区使用固定宽度 + 拖拽调整
   const [previewWidth, setPreviewWidth] = useState(500);
   const [filesWidth, setFilesWidth] = useState(260);
   const previewWidthRef = useRef(previewWidth);
   const filesWidthRef = useRef(filesWidth);
 
-  useEffect(() => {
-    previewWidthRef.current = previewWidth;
-  }, [previewWidth]);
+  const { load, save, clear } = useChatHistory();
 
-  useEffect(() => {
-    filesWidthRef.current = filesWidth;
-  }, [filesWidth]);
+  useEffect(() => { previewWidthRef.current = previewWidth; }, [previewWidth]);
+  useEffect(() => { filesWidthRef.current = filesWidth; }, [filesWidth]);
 
   const switchAgent = useCallback((agentId: string) => {
     setSelectedAgent(agentId);
-    const loadedHistories = loadHistories();
+    const loadedHistories = load();
     setHistories(loadedHistories);
     setMessages(loadedHistories[agentId] || []);
     setPreviewFile(null);
-  }, []);
+  }, [load]);
 
   const fetchFiles = useCallback(async (id: string) => {
     if (!id) return;
@@ -279,7 +88,7 @@ export default function Chat() {
         })
       );
       setAgents(withStatus);
-      const loadedHistories = loadHistories();
+      const loadedHistories = load();
       setHistories(loadedHistories);
       if (agentId) {
         switchAgent(agentId);
@@ -287,7 +96,7 @@ export default function Chat() {
         switchAgent(withStatus[0].id);
       }
     });
-  }, [agentId, switchAgent]);
+  }, [agentId, switchAgent, load]);
 
   useEffect(() => {
     const agent = agents.find(a => a.id === selectedAgent);
@@ -298,11 +107,10 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const clearChat = () => {
-    const newHistories = { ...histories, [selectedAgent]: [] };
+  const handleClearChat = () => {
+    const newHistories = clear(histories, selectedAgent);
     setHistories(newHistories);
     setMessages([]);
-    saveHistories(newHistories);
   };
 
   const handleSend = async () => {
@@ -320,7 +128,7 @@ export default function Chat() {
       setMessages(newMessages);
       const newHistories = { ...histories, [selectedAgent]: newMessages };
       setHistories(newHistories);
-      saveHistories(newHistories);
+      save(newHistories);
       fetchFiles(selectedAgent);
     } catch (e: unknown) {
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e instanceof Error ? e.message : 'Request failed'}` }]);
@@ -333,190 +141,49 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const fileTree = buildFileTree(agentFiles);
+  const selectedPath = previewFile?.name
+    ? agentFiles.find(f => f.name === previewFile.name)?.path || ''
+    : '';
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', padding: '24px', gap: '16px', maxWidth: '100%', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
-        {agentId && (
-          <Link to="/" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-            <ChevronLeft size={18} />
-          </Link>
-        )}
-        <h1 style={{ margin: 0, fontSize: '20px' }}>{agentId ? `Chat with ${agentId}` : 'Agent Chat'}</h1>
-
-        {selectedAgent && (
-          <span style={{
-            padding: '3px 10px', borderRadius: '99px', fontSize: '11px',
-            background: agentHealthy ? 'rgba(22, 163, 74, 0.1)' : 'rgba(220, 38, 38, 0.1)',
-            color: agentHealthy ? 'var(--success)' : 'var(--error)',
-          }}>
-            {agentHealthy ? 'Running' : 'Offline'}
-          </span>
-        )}
-
-        <div style={{ flex: 1 }} />
-
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setShowFiles(!showFiles)}
-            style={{
-              padding: '6px 12px', background: showFiles ? 'var(--accent)' : 'var(--bg-secondary)',
-              color: showFiles ? 'white' : 'var(--text-primary)',
-              border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px',
-              display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
-            }}
-          >
-            <Folder size={14} />
-            Files
-          </button>
-
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            style={{
-              padding: '6px 12px', background: showPreview ? 'var(--accent)' : 'var(--bg-secondary)',
-              color: showPreview ? 'white' : 'var(--text-primary)',
-              border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px',
-              display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
-            }}
-          >
-            <Layout size={14} />
-            Preview
-          </button>
-
-          {!agentId && (
-            <select
-              value={selectedAgent}
-              onChange={e => switchAgent(e.target.value)}
-              style={{
-                padding: '6px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)',
-                border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px',
-              }}
-            >
-              {agents.length === 0 && <option value="">No agents</option>}
-              {agents.map(a => <option key={a.id} value={a.id}>{a.id} (:{a.port})</option>)}
-            </select>
-          )}
-
-          {selectedAgent && (
-            <button onClick={clearChat} style={{
-              padding: '6px 12px', background: 'var(--bg-secondary)', color: 'var(--text-muted)',
-              border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px',
-              display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
-            }} title="Clear chat history">
-              <Trash2 size={14} />
-              Clear
-            </button>
-          )}
-        </div>
-      </div>
+      <ChatHeader
+        agentId={agentId}
+        selectedAgent={selectedAgent}
+        agentHealthy={agentHealthy}
+        showFiles={showFiles}
+        setShowFiles={setShowFiles}
+        showPreview={showPreview}
+        setShowPreview={setShowPreview}
+        agents={agents}
+        switchAgent={switchAgent}
+        handleClearChat={handleClearChat}
+      />
 
       <div style={{ flex: 1, display: 'flex', gap: '0', minHeight: 0 }}>
-
-        {/* Chat Column (Left, Flexible) */}
         <div style={{
           flex: 1, minWidth: '350px',
           background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         }}>
-          <div style={{
-            flex: 1, overflow: 'auto', padding: '20px 24px',
-            display: 'flex', flexDirection: 'column', gap: '16px',
-          }}>
-            {messages.length === 0 && (
-              <div style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--text-muted)', gap: '12px',
-              }}>
-                <Bot size={40} style={{ opacity: 0.4 }} />
-                <div style={{ fontSize: '14px' }}>
-                  {selectedAgent ? `Send a message to ${selectedAgent}` : 'Select an agent above to start'}
-                </div>
-              </div>
-            )}
-            {messages.map((msg, i) => (
-              <div key={i} style={{
-                display: 'flex', gap: '12px', alignItems: 'flex-start',
-                flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-              }}>
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg-tertiary)',
-                  color: msg.role === 'user' ? 'white' : 'var(--text-secondary)',
-                }}>
-                  {msg.role === 'user' ? <User size={15} /> : <Bot size={15} />}
-                </div>
-                <div style={{
-                  maxWidth: '85%', padding: '10px 14px', borderRadius: '12px',
-                  background: msg.role === 'user' ? 'var(--accent)' : 'var(--bg-tertiary)',
-                  border: '1px solid var(--border)',
-                  color: msg.role === 'user' ? 'white' : 'var(--text-primary)',
-                  fontSize: '13px', lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                }}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'var(--bg-tertiary)',
-                }}>
-                  <Bot size={15} />
-                </div>
-                <div style={{
-                  padding: '10px 14px', borderRadius: '12px',
-                  background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                }}>
-                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Agent is thinking...</span>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+          <MessageList
+            messages={messages}
+            loading={loading}
+            selectedAgent={selectedAgent}
+            messagesEndRef={messagesEndRef}
+          />
 
-          <div style={{
-            padding: '16px 24px', borderTop: '1px solid var(--border)',
-            display: 'flex', gap: '12px', alignItems: 'flex-end',
-          }}>
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={selectedAgent ? `Message ${selectedAgent}...` : 'Select an agent first'}
-              disabled={!selectedAgent || loading}
-              rows={1}
-              style={{
-                flex: 1, padding: '10px 14px', background: 'var(--bg-tertiary)',
-                color: 'var(--text-primary)', border: '1px solid var(--border)',
-                borderRadius: '10px', fontSize: '13px', resize: 'none', outline: 'none',
-                minHeight: '42px', maxHeight: '150px', fontFamily: 'inherit',
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || !selectedAgent || loading}
-              style={{
-                width: '42px', height: '42px', borderRadius: '10px', flexShrink: 0,
-                background: input.trim() && selectedAgent ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: input.trim() && selectedAgent ? 'white' : 'var(--text-muted)',
-                border: 'none', cursor: input.trim() && selectedAgent ? 'pointer' : 'default',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Send size={16} />
-            </button>
-          </div>
+          <ChatInput
+            input={input}
+            setInput={setInput}
+            handleSend={handleSend}
+            handleKeyDown={handleKeyDown}
+            selectedAgent={selectedAgent}
+            loading={loading}
+          />
         </div>
 
-        {/* Preview Column (Middle) */}
         {showPreview && (
           <>
             <div style={{ width: '8px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
@@ -546,26 +213,16 @@ export default function Chat() {
                 </button>
               </div>
               <div style={{ flex: 1, overflow: 'auto' }}>
-                {previewFile?.content ? (
-                  <SimpleMarkdown content={previewFile.content} />
-                ) : (
-                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '8px' }}>
-                    {loadingFile ? (
-                      <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', opacity: 0.3 }} />
-                    ) : (
-                      <FileText size={32} style={{ opacity: 0.3 }} />
-                    )}
-                    <span style={{ fontSize: '13px' }}>
-                      {loadingFile ? 'Loading file content...' : 'Select a file to preview'}
-                    </span>
-                  </div>
-                )}
+                <CodePreview
+                  fileName={previewFile?.name}
+                  content={previewFile?.content}
+                  loading={loadingFile}
+                />
               </div>
             </div>
           </>
         )}
 
-        {/* File Explorer (Now Corrected to the Right) */}
         {showFiles && (
           <>
             <div style={{ width: '8px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
@@ -623,13 +280,11 @@ export default function Chat() {
                 </div>
               </div>
               <div style={{ flex: 1, overflow: 'auto', padding: '6px' }}>
-                {fileTree.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>No files yet</div>
-                ) : (
-                  fileTree.map(node => (
-                    <FileTreeNode key={node.path} node={node} depth={0} onSelect={handlePreviewFile} selectedPath={previewFile?.name ? agentFiles.find(f => f.name === previewFile.name)?.path || '' : ''} />
-                  ))
-                )}
+                <FileTree
+                  files={agentFiles}
+                  onSelect={handlePreviewFile}
+                  selectedPath={selectedPath}
+                />
               </div>
             </div>
           </>
