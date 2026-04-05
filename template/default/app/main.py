@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import agent, health
+from app.routers import agent, health, files
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -15,6 +15,7 @@ app = FastAPI(
 # Include all API routes
 app.include_router(health.router, prefix=settings.API_V1_STR, tags=["system"])
 app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
+app.include_router(files.router, prefix=f"{settings.API_V1_STR}/files", tags=["files"])
 
 # Dynamic CORS middleware
 if settings.ALLOW_CORS:

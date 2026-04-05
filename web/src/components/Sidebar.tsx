@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, PlusCircle, GitBranch, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, PlusCircle, GitBranch, ShieldCheck, FolderOutput } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -7,6 +7,7 @@ const navItems = [
   { to: '/create', icon: PlusCircle, label: 'Create Agent' },
   { to: '/lineage', icon: GitBranch, label: 'Lineage' },
   { to: '/system', icon: ShieldCheck, label: 'Port Viewer' },
+  { to: '/shared', icon: FolderOutput, label: 'Shared Files' },
 ];
 
 export default function Sidebar() {

@@ -77,6 +77,29 @@ class AgentTools:
         except Exception as e:
             return f"Error listing peers: {str(e)}"
 
+    @staticmethod
+    def publish_to_shared(file_path: str) -> str:
+        """MRA 自理：将生成的文件发布到公共共享区，方便用户下载"""
+        if not os.path.exists(file_path):
+            return f"Error: File {file_path} not found"
+        
+        # 建立共享目录，确保在根目录级别 (../../workspace/shared_files/)
+        shared_dir = os.path.abspath(os.path.join(os.getcwd(), "../shared_files"))
+        os.makedirs(shared_dir, exist_ok=True)
+        
+        filename = os.path.basename(file_path)
+        agent_id = os.getenv("AGENT_ID", "unknown")
+        # 采用前缀方案避免同名冲突
+        target_name = f"{agent_id}_{filename}"
+        target_path = os.path.join(shared_dir, target_name)
+        
+        try:
+            import shutil
+            shutil.copy2(file_path, target_path)
+            return f"Successfully published {file_path} to shared area as {target_name}"
+        except Exception as e:
+            return f"Error publishing file: {str(e)}"
+
 TOOL_SCHEMAS = [
     {
         "name": "execute_bash",
@@ -131,6 +154,17 @@ TOOL_SCHEMAS = [
             "type": "object",
             "properties": {}
         }
+    },
+    {
+        "name": "publish_to_shared",
+        "description": "MRA Agent Autonomy: Move/Copy a generated file (like a patent, report, or binary) to the public shared area for user access.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Local path of the file within the agent's workspace"}
+            },
+            "required": ["file_path"]
+        }
     }
 ]
 
@@ -145,4 +179,6 @@ def handle_tool_call(name: str, args: Dict[str, Any]) -> str:
         return AgentTools.call_peer_agent(args["agent_id"], args["prompt"])
     elif name == "list_peers":
         return AgentTools.list_peers()
+    elif name == "publish_to_shared":
+        return AgentTools.publish_to_shared(args["file_path"])
     return f"Unknown tool: {name}"

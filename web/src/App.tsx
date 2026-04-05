@@ -5,6 +5,7 @@ import Chat from './pages/Chat';
 import CreateAgent from './pages/CreateAgent';
 import Lineage from './pages/Lineage';
 import PortViewer from './pages/PortViewer';
+import SharedFiles from './pages/SharedFiles';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/create" element={<CreateAgent />} />
           <Route path="/lineage" element={<Lineage />} />
           <Route path="/system" element={<PortViewer />} />
+          <Route path="/shared" element={<SharedFiles />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -53,6 +53,10 @@ async def list_agents():
 
     if os.path.exists(workspace_dir):
         for folder in os.listdir(workspace_dir):
+            # 过滤逻辑：排除非 Agent 目录或特定的 shared_files 目录
+            if folder == "shared_files" or folder.startswith("."):
+                continue
+                
             if os.path.isdir(os.path.join(workspace_dir, folder)):
                 proc_info = AGENT_PROCESSES.get(folder, {})
                 status = proc_info.get("status", "Stopped")

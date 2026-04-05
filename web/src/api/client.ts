@@ -34,6 +34,24 @@ export const agentApi = {
     return res.data.thoughts;
   },
 
+  getAgentFiles: async (agentId: string): Promise<any[]> => {
+    const res = await gateway.get<{ files: any[] }>(`/admin/${agentId}/files`);
+    return res.data.files;
+  },
+
+  getSharedFiles: async (): Promise<any[]> => {
+    const res = await gateway.get<{ files: any[] }>(`/admin/shared/files`);
+    return res.data.files;
+  },
+
+  getDownloadUrl: (agentId: string, path: string): string => {
+    return `/api/admin/${agentId}/files/download?path=${encodeURIComponent(path)}`;
+  },
+
+  getSharedDownloadUrl: (path: string): string => {
+    return `/api/admin/shared/files/download?path=${encodeURIComponent(path)}`;
+  },
+
   getAgentConfig: async (agentId: string): Promise<{ allow_cors: boolean }> => {
     const res = await gateway.get(`/admin/${agentId}/config`);
     return res.data;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, Square, RefreshCw, MessageSquare, Activity, PlusCircle, Cpu, FileText, X, Settings2, Globe, Shield, Brain } from 'lucide-react';
+import { Play, Square, RefreshCw, MessageSquare, Activity, PlusCircle, Cpu, FileText, X, Settings2, Globe, Shield, Brain, FolderOpen, Download, Share2 } from 'lucide-react';
 import { agentApi } from '../api/client';
 import type { Agent } from '../types';
 
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLogs, setSelectedLogs] = useState<{ id: string, content: string, title: string } | null>(null);
   const [selectedAgentConfig, setSelectedAgentConfig] = useState<{ id: string, allow_cors: boolean } | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<{ id: string, files: any[], isShared: boolean } | null>(null);
 
   const fetchAgents = async () => {
     try {
@@ -72,6 +73,16 @@ export default function Dashboard() {
     }
   };
 
+  const handleShowFiles = async (agentId: string) => {
+    try {
+      const files = await agentApi.getAgentFiles(agentId);
+      setSelectedFiles({ id: agentId, files, isShared: false });
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load files");
+    }
+  };
+
   const handleUpdateConfig = async (allow_cors: boolean) => {
     if (!selectedAgentConfig) return;
     try {
@@ -92,6 +103,13 @@ export default function Dashboard() {
           <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Monitor and manage your agent fleet</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <Link to="/shared" style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '8px 16px', background: 'var(--bg-secondary)', color: 'var(--accent)',
+            border: '1px solid var(--accent-dim)', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', textDecoration: 'none',
+          }}>
+            <Share2 size={14} /> Shared Files
+          </Link>
           <Link to="/create" style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '8px 16px', background: 'var(--accent)', color: 'white',
@@ -221,6 +239,14 @@ export default function Dashboard() {
                         <Brain size={12} />Thoughts
                       </button>
 
+                      <button onClick={() => handleShowFiles(agent.id)} style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        padding: '5px 10px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+                        border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
+                      }}>
+                        <FolderOpen size={12} />Files
+                      </button>
+
                       <button onClick={() => handleShowLogs(agent.id)} style={{
                         display: 'flex', alignItems: 'center', gap: '4px',
                         padding: '5px 10px', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
@@ -323,6 +349,75 @@ export default function Dashboard() {
                 <RefreshCw size={10} style={{ marginRight: '6px' }} />
                 Requires restart to apply changes.
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedFiles && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)', zIndex: 1000,
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', width: '600px', maxHeight: '80vh',
+            borderRadius: '12px', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '16px 24px', borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <h3 style={{ margin: 0, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderOpen size={18} /> {selectedFiles.isShared ? 'Shared Files' : `Files: ${selectedFiles.id}`}
+              </h3>
+              <button 
+                onClick={() => setSelectedFiles(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+              {selectedFiles.files.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  No files found in this directory.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
+                  {selectedFiles.files.map((file: any, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '10px 16px', background: 'var(--bg-tertiary)', borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                        <FileText size={18} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {file.name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {(file.size / 1024).toFixed(1)} KB • {new Date(file.mtime * 1000).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      <a 
+                        href={selectedFiles.isShared ? agentApi.getSharedDownloadUrl(file.path) : agentApi.getDownloadUrl(selectedFiles.id, file.path)}
+                        download
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          padding: '6px 12px', background: 'var(--accent-dim)', color: 'var(--accent)',
+                          borderRadius: '6px', fontSize: '12px', textDecoration: 'none', fontWeight: 500
+                        }}
+                      >
+                        <Download size={14} /> Download
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
