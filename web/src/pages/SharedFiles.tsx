@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FolderOpen, Download, RefreshCw, ArrowLeft, Eye, Upload } from 'lucide-react';
 import { agentApi } from '../api/client';
-import { CodePreview } from '../components/CodePreview';
+import { CodePreview, RenderModeToggle } from '../components/CodePreview';
 import { Resizer } from '../components/Resizer';
 import { FileTree } from '../components/FileTree';
 
@@ -18,6 +18,7 @@ export default function SharedFiles() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedPath, setSelectedPath] = useState('');
+  const [renderMode, setRenderMode] = useState<'auto' | 'md' | 'py' | 'text'>('auto');
 
   useEffect(() => { filesWidthRef.current = filesWidth; }, [filesWidth]);
 
@@ -182,6 +183,12 @@ export default function SharedFiles() {
                 Preview: {previewFile?.name || 'No file selected'}
               </div>
               {previewFile && (
+                <>
+                <RenderModeToggle
+                  fileName={previewFile.name}
+                  mode={renderMode}
+                  onModeChange={setRenderMode}
+                />
                 <a
                   href={agentApi.getSharedDownloadUrl(selectedPath)}
                   download
@@ -195,6 +202,7 @@ export default function SharedFiles() {
                   <Download size={12} />
                   Download
                 </a>
+                </>
               )}
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
@@ -202,6 +210,7 @@ export default function SharedFiles() {
                 fileName={previewFile?.name}
                 content={previewFile?.content}
                 loading={loadingFile}
+                mode={renderMode}
               />
             </div>
           </div>

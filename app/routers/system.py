@@ -66,3 +66,26 @@ async def kill_process(pid: int):
         raise HTTPException(status_code=404, detail="Process not found.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/clear-logs/{agent_id}")
+async def clear_agent_logs(agent_id: str):
+    """清空指定 Agent 的 logs 目录下所有内容（保留目录）"""
+    from app.core.config import settings
+    logs_dir = os.path.join(settings.WORKSPACE_DIR, agent_id, "logs")
+    
+    if not os.path.exists(logs_dir):
+        return {"status": "success", "message": f"Agent {agent_id} logs directory does not exist."}
+    
+    try:
+        for item in os.listdir(logs_dir):
+            item_path = os.path.join(logs_dir, item)
+            if os.path.isfile(item_path):
+                os.remove(item_path)
+            elif os.path.isdir(item_path):
+                import shutil
+                shutil.rmtree(item_path)
+        
+        os.makedirs(logs_dir, exist_ok=True)
+        return {"status": "success", "message": f"Logs for {agent_id} cleared."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

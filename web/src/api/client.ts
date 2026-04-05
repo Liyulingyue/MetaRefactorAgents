@@ -92,25 +92,36 @@ export const agentApi = {
   },
 };
 
+export const systemApi = {
+  clearLogs: async (agentId: string) => {
+    const res = await gateway.post(`/system/clear-logs/${agentId}`);
+    return res.data;
+  },
+};
+
 export const backupApi = {
   listBackups: async () => {
     const res = await gateway.get('/backup/list');
     return res.data;
   },
-  createBackup: async (name?: string) => {
-    const res = await gateway.post(`/backup/create${name ? `?name=${name}` : ''}`);
+  createBackup: async (agentId: string, name?: string, filePaths?: string[]) => {
+    const res = await gateway.post('/backup/create', {
+      agent_id: agentId,
+      name,
+      file_paths: filePaths,
+    });
     return res.data;
   },
-  restoreBackup: async (name: string) => {
-    const res = await gateway.post(`/backup/restore/${name}`);
+  restoreBackup: async (name: string, agentId: string) => {
+    const res = await gateway.post(`/backup/restore/${encodeURIComponent(name)}?agent_id=${agentId}`);
     return res.data;
   },
-  deleteBackup: async (name: string) => {
-    const res = await gateway.delete(`/backup/delete/${name}`);
+  deleteBackup: async (name: string, agentId: string) => {
+    const res = await gateway.delete(`/backup/delete/${encodeURIComponent(agentId)}/${encodeURIComponent(name)}`);
     return res.data;
   },
 
-  getDownloadUrl: (name: string): string => {
-    return `/api/backup/download/${encodeURIComponent(name)}`;
+  getDownloadUrl: (name: string, agentId: string): string => {
+    return `/api/backup/download/${encodeURIComponent(agentId)}/${encodeURIComponent(name)}`;
   },
 };

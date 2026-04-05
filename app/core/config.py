@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # 以后可以扩展为从数据库或文件读取
     WORKSPACE_DIR: str = "workspace"
     TEMPLATE_DIR: str = "template"
+    LOGS_DIR: str = "logs"
 
     model_config = {
         "env_file": ".env",

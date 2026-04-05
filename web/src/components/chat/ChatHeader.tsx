@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Folder, Layout, Trash2 } from 'lucide-react';
+import { ChevronLeft, Folder, Layout, Trash2, Bomb } from 'lucide-react';
 import type { Agent } from '../../types';
 
 interface ChatHeaderProps {
@@ -13,6 +13,7 @@ interface ChatHeaderProps {
   agents: Agent[];
   switchAgent: (id: string) => void;
   handleClearChat: () => void;
+  handleDeepClear: () => void;
 }
 
 export function ChatHeader({
@@ -25,7 +26,8 @@ export function ChatHeader({
   setShowPreview,
   agents,
   switchAgent,
-  handleClearChat
+  handleClearChat,
+  handleDeepClear
 }: ChatHeaderProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
@@ -90,14 +92,24 @@ export function ChatHeader({
         )}
 
         {selectedAgent && (
-          <button onClick={handleClearChat} style={{
-            padding: '6px 12px', background: 'var(--bg-secondary)', color: 'var(--text-muted)',
-            border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px',
-            display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
-          }} title="Clear chat history">
-            <Trash2 size={14} />
-            Clear
-          </button>
+          <>
+            <button onClick={handleDeepClear} style={{
+              padding: '6px 12px', background: 'rgba(220, 38, 38, 0.1)', color: 'var(--error)',
+              border: '1px solid var(--error)', borderRadius: '8px', fontSize: '13px',
+              display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
+            }} title="Deep clear: clear all chat history and logs">
+              <Bomb size={14} />
+              Deep Clear
+            </button>
+            <button onClick={handleClearChat} style={{
+              padding: '6px 12px', background: 'var(--bg-secondary)', color: 'var(--text-muted)',
+              border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px',
+              display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
+            }} title="Clear chat history">
+              <Trash2 size={14} />
+              Clear
+            </button>
+          </>
         )}
       </div>
     </div>

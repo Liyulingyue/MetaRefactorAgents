@@ -27,7 +27,7 @@ export function ChatInput({
         onChange={e => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={selectedAgent ? `Message ${selectedAgent}...` : 'Select an agent first'}
-        disabled={!selectedAgent || loading}
+        disabled={!selectedAgent}
         style={{
           flex: 1, minHeight: '44px', maxHeight: '200px', padding: '12px 16px',
           background: 'var(--bg-secondary)', color: 'var(--text-primary)',

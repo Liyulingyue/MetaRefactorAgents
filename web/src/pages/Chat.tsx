@@ -4,11 +4,11 @@ import {
   Eye, X,
   Folder, RefreshCw
 } from 'lucide-react';
-import { agentApi } from '../api/client';
+import { agentApi, systemApi } from '../api/client';
 import type { Agent, Message } from '../types';
 import { Resizer } from '../components/Resizer';
 import { FileTree } from '../components/FileTree';
-import { CodePreview } from '../components/CodePreview';
+import { CodePreview, RenderModeToggle } from '../components/CodePreview';
 import { useChatHistory } from '../hooks/useChatHistory';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { MessageList } from '../components/chat/MessageList';
@@ -30,6 +30,7 @@ export default function Chat() {
   const [agentFiles, setAgentFiles] = useState<any[]>([]);
   const [previewFile, setPreviewFile] = useState<{ name: string, content: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
+  const [renderMode, setRenderMode] = useState<'auto' | 'md' | 'text'>('auto');
 
   const [previewWidth, setPreviewWidth] = useState(500);
   const [filesWidth, setFilesWidth] = useState(260);
@@ -75,6 +76,14 @@ export default function Chat() {
     }
   };
 
+  const refreshPreviewFile = async () => {
+    if (!previewFile || !selectedAgent) return;
+    const fileEntry = agentFiles.find(f => f.name === previewFile.name);
+    if (fileEntry) {
+      await handlePreviewFile(fileEntry.path, fileEntry.name);
+    }
+  };
+
   useEffect(() => {
     if (selectedAgent) fetchFiles(selectedAgent);
   }, [selectedAgent, fetchFiles]);
@@ -111,6 +120,20 @@ export default function Chat() {
     const newHistories = clear(histories, selectedAgent);
     setHistories(newHistories);
     setMessages([]);
+  };
+
+  const handleDeepClear = async () => {
+    if (!confirm('This will clear all chat history and logs. Continue?')) return;
+    try {
+      await systemApi.clearLogs(selectedAgent);
+      localStorage.removeItem('chat_histories');
+      setHistories({});
+      setMessages([]);
+      alert('Deep clear completed.');
+    } catch (e) {
+      console.error('Failed to deep clear:', e);
+      alert('Deep clear failed.');
+    }
   };
 
   const handleSend = async () => {
@@ -158,6 +181,7 @@ export default function Chat() {
         agents={agents}
         switchAgent={switchAgent}
         handleClearChat={handleClearChat}
+        handleDeepClear={handleDeepClear}
       />
 
       <div style={{ flex: 1, display: 'flex', gap: '0', minHeight: 0 }}>
@@ -208,15 +232,28 @@ export default function Chat() {
                   <Eye size={14} />
                   Preview: {previewFile?.name || 'No file selected'}
                 </div>
-                <button onClick={() => setShowPreview(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {previewFile && (
+                    <RenderModeToggle
+                      fileName={previewFile.name}
+                      mode={renderMode}
+                      onModeChange={setRenderMode}
+                    />
+                  )}
+                  <button onClick={refreshPreviewFile} disabled={loadingFile} style={{ border: 'none', background: 'transparent', cursor: loadingFile ? 'default' : 'pointer', color: 'var(--text-muted)' }}>
+                    <RefreshCw size={14} style={loadingFile ? { animation: 'spin 1s linear infinite' } : {}} />
+                  </button>
+                  <button onClick={() => setShowPreview(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
                   <X size={14} />
                 </button>
+                </div>
               </div>
               <div style={{ flex: 1, overflow: 'auto' }}>
                 <CodePreview
                   fileName={previewFile?.name}
                   content={previewFile?.content}
                   loading={loadingFile}
+                  mode={renderMode}
                 />
               </div>
             </div>

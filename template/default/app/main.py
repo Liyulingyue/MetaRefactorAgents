@@ -12,20 +12,19 @@ app = FastAPI(
     redoc_url=f"{settings.API_V1_STR}/redoc",
 )
 
+# Set all CORS enabled origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Include all API routes
 app.include_router(health.router, prefix=settings.API_V1_STR, tags=["system"])
 app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
 app.include_router(files.router, prefix=f"{settings.API_V1_STR}/files", tags=["files"])
-
-# Dynamic CORS middleware
-if settings.ALLOW_CORS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
 @app.get("/", tags=["root"])
 async def root():

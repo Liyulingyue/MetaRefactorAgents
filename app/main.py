@@ -119,7 +119,7 @@ async def proxy_to_agent(agent_id: str, path: str, request: Request):
                 params=params,
                 content=content,
                 headers=headers,
-                timeout=60.0 # Agent 任务可能较长
+                timeout=None  # 不设置超时，允许 Agent 长时间运行（如撰写专利）
             )
             return JSONResponse(
                 content=resp.json(),

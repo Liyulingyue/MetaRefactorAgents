@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     RELOAD: bool = True
-    ALLOW_CORS: bool = False  # 默认不支持跨域，通过网关动态修改
 
     # Workspace Settings
     WORKSPACE_ROOT: str = "./workspace"

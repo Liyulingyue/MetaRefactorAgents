@@ -76,20 +76,31 @@ async def stop_agent(agent_id: str, request: Request):
     raise HTTPException(status_code=404, detail="Agent not running")
 
 @router.get("/{agent_id}/logs")
-async def get_agent_logs(agent_id: str, lines: int = 100):
+async def get_agent_logs(agent_id: str, type: str = "server"):
     """获取 Agent 的运行日志"""
     try:
-        log_path = f"workspace/{agent_id}/logs/server.log"
+        if type == "thought":
+            log_path = f"workspace/{agent_id}/logs/thoughts.md"
+        else:
+            log_path = f"workspace/{agent_id}/logs/server.log"
+            
         if not os.path.exists(log_path):
             return {"logs": f"Log file not found at {log_path}"}
         
-        # 应该在这里读取日志并返回
-        with open(log_path, "r") as f:
+        with open(log_path, "r", encoding="utf-8") as f:
             log_content = f.read()
+            if type == "thought":
+                return {"thoughts": log_content}
             return {"logs": log_content}
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{agent_id}/thoughts")
+async def get_agent_thoughts(agent_id: str):
+    """单独的思维日志接口"""
+    return await get_agent_logs(agent_id, type="thought")
 
 @router.get("/shared/files")
 async def list_shared_files():
@@ -155,15 +166,13 @@ async def download_shared_file(path: str):
 
 @router.get("/{agent_id}/files")
 async def list_agent_files(agent_id: str):
-    """获取 Agent 工作目录下的文件列表 (排除 logs 和 pycache)"""
+    """获取 Agent 工作目录下的文件列表"""
     agent_root = f"workspace/{agent_id}"
     if not os.path.exists(agent_root):
         raise HTTPException(status_code=404, detail="Agent workspace not found")
     
     files = []
     for root, dirs, filenames in os.walk(agent_root):
-        if "logs" in dirs:
-            dirs.remove("logs")
         if "__pycache__" in dirs:
             dirs.remove("__pycache__")
             
