@@ -82,3 +82,26 @@ export const agentApi = {
     }
   },
 };
+
+export const backupApi = {
+  listBackups: async () => {
+    const res = await gateway.get('/backup/list');
+    return res.data;
+  },
+  createBackup: async (name?: string) => {
+    const res = await gateway.post(`/backup/create${name ? `?name=${name}` : ''}`);
+    return res.data;
+  },
+  restoreBackup: async (name: string) => {
+    const res = await gateway.post(`/backup/restore/${name}`);
+    return res.data;
+  },
+  deleteBackup: async (name: string) => {
+    const res = await gateway.delete(`/backup/delete/${name}`);
+    return res.data;
+  },
+
+  getDownloadUrl: (name: string): string => {
+    return `/api/backup/download/${encodeURIComponent(name)}`;
+  },
+};

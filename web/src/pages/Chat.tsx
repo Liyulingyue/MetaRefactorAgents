@@ -386,50 +386,7 @@ export default function Chat() {
 
       <div style={{ flex: 1, display: 'flex', gap: '0', minHeight: 0 }}>
 
-        {/* File Explorer (Now on the Left) */}
-        {showFiles && (
-          <>
-            <div style={{
-              width: `${filesWidth}px`, flexShrink: 0,
-              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
-              display: 'flex', flexDirection: 'column', overflow: 'hidden',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            }}>
-              <div style={{
-                padding: '12px 16px', borderBottom: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'var(--bg-secondary)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500 }}>
-                  <Folder size={14} />
-                  Files
-                </div>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => selectedAgent && fetchFiles(selectedAgent)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }} title="Refresh">
-                    <RefreshCw size={12} />
-                  </button>
-                  <button onClick={() => setShowFiles(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                    <X size={12} />
-                  </button>
-                </div>
-              </div>
-              <div style={{ flex: 1, overflow: 'auto', padding: '6px' }}>
-                {fileTree.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>No files yet</div>
-                ) : (
-                  fileTree.map(node => (
-                    <FileTreeNode key={node.path} node={node} depth={0} onSelect={handlePreviewFile} selectedPath={previewFile?.name ? agentFiles.find(f => f.name === previewFile.name)?.path || '' : ''} />
-                  ))
-                )}
-              </div>
-            </div>
-            <div style={{ width: '16px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-              <Resizer onDrag={delta => setFilesWidth(w => Math.max(160, Math.min(400, w + delta)))} />
-            </div>
-          </>
-        )}
-
-        {/* Chat Column (Middle, Flexible) */}
+        {/* Chat Column (Left, Flexible) */}
         <div style={{
           flex: 1, minWidth: '350px',
           background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
@@ -532,7 +489,7 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Preview Column (Right) */}
+        {/* Preview Column (Middle) */}
         {showPreview && (
           <>
             <div style={{ width: '16px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
@@ -571,6 +528,49 @@ export default function Chat() {
                       {loadingFile ? 'Loading file content...' : 'Select a file to preview'}
                     </span>
                   </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* File Explorer (Now Corrected to the Right) */}
+        {showFiles && (
+          <>
+            <div style={{ width: '16px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+              <Resizer onDrag={delta => setFilesWidth(w => Math.max(160, Math.min(400, w - delta)))} />
+            </div>
+            <div style={{
+              width: `${filesWidth}px`, flexShrink: 0,
+              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            }}>
+              <div style={{
+                padding: '12px 16px', borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'var(--bg-secondary)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500 }}>
+                  <Folder size={14} />
+                  Files
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button onClick={() => selectedAgent && fetchFiles(selectedAgent)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }} title="Refresh">
+                    <RefreshCw size={12} />
+                  </button>
+                  <button onClick={() => setShowFiles(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', padding: '6px' }}>
+                {fileTree.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>No files yet</div>
+                ) : (
+                  fileTree.map(node => (
+                    <FileTreeNode key={node.path} node={node} depth={0} onSelect={handlePreviewFile} selectedPath={previewFile?.name ? agentFiles.find(f => f.name === previewFile.name)?.path || '' : ''} />
+                  ))
                 )}
               </div>
             </div>

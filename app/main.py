@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 import httpx
 import os
 from app.core.config import settings
-from app.routers import manager, system
+from app.routers import manager, system, backup
 
 app = FastAPI(title="MRA Gateway")
 
@@ -28,6 +28,7 @@ async def shutdown_event():
 # 注册管理路由
 app.include_router(manager.router, prefix="/api/admin", tags=["admin"])
 app.include_router(system.router, prefix="/api/system", tags=["system"])
+app.include_router(backup.router, prefix="/api/backup", tags=["backup"])
 
 @app.get("/api/agents")
 async def list_agents():
