@@ -95,33 +95,40 @@ function FileTreeNode({ node, depth, onSelect, selectedPath }: { node: FileNode;
 }
 
 function Resizer({ onDrag, direction = 'horizontal' }: { onDrag: (delta: number) => void, direction?: 'horizontal' | 'vertical' }) {
-  const dragging = useRef(false);
+  const isDragging = useRef(false);
   const startPos = useRef(0);
+  const [localDragging, setLocalDragging] = useState(false);
 
   const onMouseDown = (e: React.MouseEvent) => {
-    dragging.current = true;
+    isDragging.current = true;
+    setLocalDragging(true);
     startPos.current = direction === 'horizontal' ? e.clientX : e.clientY;
     
+    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
+    document.body.style.userSelect = 'none';
+    document.body.classList.add('resizing-global');
+
     const onMove = (ev: MouseEvent) => {
-      if (dragging.current) {
-        const currentPos = direction === 'horizontal' ? ev.clientX : ev.clientY;
-        onDrag(currentPos - startPos.current);
-        startPos.current = currentPos; // 连续更新，平滑拖动
-      }
+      if (!isDragging.current) return;
+      const currentPos = direction === 'horizontal' ? ev.clientX : ev.clientY;
+      const delta = currentPos - startPos.current;
+      onDrag(delta);
+      
+      startPos.current = currentPos;
     };
     
     const onUp = () => {
-      dragging.current = false;
+      isDragging.current = false;
+      setLocalDragging(false);
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      document.body.classList.remove('resizing-global');
     };
     
-    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mousemove', onMove, { passive: true });
     document.addEventListener('mouseup', onUp);
-    document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
-    document.body.style.userSelect = 'none';
   };
 
   return (
@@ -136,19 +143,29 @@ function Resizer({ onDrag, direction = 'horizontal' }: { onDrag: (delta: number)
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 20,
+        zIndex: 200,
+        position: 'relative',
+        margin: direction === 'horizontal' ? '0 -6px' : '-6px 0',
       }}
     >
       <div style={{
-        width: direction === 'horizontal' ? '2px' : '40px',
-        height: direction === 'horizontal' ? '40px' : '2px',
+        width: direction === 'horizontal' ? (localDragging ? '4px' : '2px') : (localDragging ? '40px' : '40px'),
+        height: direction === 'horizontal' ? (localDragging ? '40px' : '40px') : (localDragging ? '4px' : '2px'),
         borderRadius: '4px',
-        background: 'var(--border)',
-        transition: 'background 0.15s',
+        background: localDragging ? 'var(--accent)' : 'var(--border)',
+        transition: 'background 0.15s, width 0.15s, height 0.15s',
       }} className="resizer-handle" />
       <style>{`
-        div:hover > .resizer-handle {
+        .resizer-handle:not(.active):hover {
           background: var(--accent) !important;
+          width: ${direction === 'horizontal' ? '4px' : '40px'} !important;
+          height: ${direction === 'horizontal' ? '40px' : '4px'} !important;
+        }
+        body.resizing-global * {
+          pointer-events: none !important;
+        }
+        body.resizing-global [onmousedown] {
+          pointer-events: auto !important;
         }
       `}</style>
     </div>
@@ -204,6 +221,16 @@ export default function Chat() {
   // 2. 左侧 Preview 区和右侧 Files 区使用固定宽度 + 拖拽调整
   const [previewWidth, setPreviewWidth] = useState(500);
   const [filesWidth, setFilesWidth] = useState(260);
+  const previewWidthRef = useRef(previewWidth);
+  const filesWidthRef = useRef(filesWidth);
+
+  useEffect(() => {
+    previewWidthRef.current = previewWidth;
+  }, [previewWidth]);
+
+  useEffect(() => {
+    filesWidthRef.current = filesWidth;
+  }, [filesWidth]);
 
   const switchAgent = useCallback((agentId: string) => {
     setSelectedAgent(agentId);
@@ -492,8 +519,12 @@ export default function Chat() {
         {/* Preview Column (Middle) */}
         {showPreview && (
           <>
-            <div style={{ width: '16px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-              <Resizer onDrag={delta => setPreviewWidth(w => Math.max(300, Math.min(1000, w - delta)))} />
+            <div style={{ width: '8px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+              <Resizer onDrag={delta => {
+                const nextPreview = Math.max(300, Math.min(1000, previewWidthRef.current - delta));
+                previewWidthRef.current = nextPreview;
+                setPreviewWidth(nextPreview);
+              }} />
             </div>
             <div style={{
               width: `${previewWidth}px`, flexShrink: 0,
@@ -514,7 +545,7 @@ export default function Chat() {
                   <X size={14} />
                 </button>
               </div>
-              <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
+              <div style={{ flex: 1, overflow: 'auto' }}>
                 {previewFile?.content ? (
                   <SimpleMarkdown content={previewFile.content} />
                 ) : (
@@ -537,8 +568,35 @@ export default function Chat() {
         {/* File Explorer (Now Corrected to the Right) */}
         {showFiles && (
           <>
-            <div style={{ width: '16px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-              <Resizer onDrag={delta => setFilesWidth(w => Math.max(160, Math.min(400, w - delta)))} />
+            <div style={{ width: '8px', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+              <Resizer onDrag={delta => {
+                if (showPreview) {
+                  const MIN_PREVIEW = 300;
+                  const MAX_PREVIEW = 1000;
+                  const MIN_FILES = 160;
+                  const MAX_FILES = 400;
+
+                  const currentPreview = previewWidthRef.current;
+                  const currentFiles = filesWidthRef.current;
+                  const growPreviewLimit = Math.min(MAX_PREVIEW - currentPreview, currentFiles - MIN_FILES);
+                  const shrinkPreviewLimit = Math.max(MIN_PREVIEW - currentPreview, currentFiles - MAX_FILES);
+                  const safeDelta = Math.max(shrinkPreviewLimit, Math.min(growPreviewLimit, delta));
+
+                  if (safeDelta === 0) return;
+
+                  const nextPreview = currentPreview + safeDelta;
+                  const nextFiles = currentFiles - safeDelta;
+
+                  previewWidthRef.current = nextPreview;
+                  filesWidthRef.current = nextFiles;
+                  setPreviewWidth(nextPreview);
+                  setFilesWidth(nextFiles);
+                } else {
+                  const nextFiles = Math.max(160, Math.min(400, filesWidthRef.current - delta));
+                  filesWidthRef.current = nextFiles;
+                  setFilesWidth(nextFiles);
+                }
+              }} />
             </div>
             <div style={{
               width: `${filesWidth}px`, flexShrink: 0,
