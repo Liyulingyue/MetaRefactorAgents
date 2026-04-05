@@ -15,13 +15,14 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     RELOAD: bool = True
+    ALLOW_CORS: bool = False  # 默认不支持跨域，通过网关动态修改
 
     # Workspace Settings
     WORKSPACE_ROOT: str = "./workspace"
     ACTIVE_TEMPLATE: str = "default"
 
     model_config = {
-        "env_file": ".env",
+        "env_file": [".env", "../../.env"],
         "case_sensitive": True,
         "extra": "ignore",
         "env_file_encoding": "utf-8"
