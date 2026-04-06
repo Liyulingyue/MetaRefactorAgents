@@ -16,7 +16,7 @@ def init_agent_workspace(agent_id: str, template_name: str = "default") -> str:
         raise Exception(f"Template {template_name} does not exist.")
     
     # 递归复制
-    shutil.copytree(template_path, workspace_path)
+    shutil.copytree(template_path, workspace_path, ignore=shutil.ignore_patterns('.template'))
     
     # 记录 template lineage 到 .meta 文件
     tpl_config_path = os.path.join(template_path, ".template")

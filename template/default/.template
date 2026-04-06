@@ -1,7 +1,7 @@
 {
   "id": "20260301120000",
   "name": "default",
-  "replace": ["app"],
+  "replace": ["app", "run.py"],
   "exclude": ["logs", ".backup", "readme.md"],
   "lineage": {
     "version": "1.0.0",
