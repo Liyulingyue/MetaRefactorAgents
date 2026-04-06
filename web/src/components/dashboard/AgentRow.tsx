@@ -30,6 +30,20 @@ export function AgentRow({
           {agent.id}
         </Link>
       </td>
+      <td style={{ padding: '14px 24px' }}>
+        {agent.template ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 500 }}>{agent.template}</span>
+            {agent.template_version && (
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                v{agent.template_version}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>-</span>
+        )}
+      </td>
       <td style={{ padding: '14px 24px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>:{agent.port}</td>
       <td style={{ padding: '14px 24px' }}>
         <span style={{

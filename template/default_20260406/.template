@@ -1,4 +1,12 @@
 {
+  "id": "20260406143022",
+  "name": "default_20260406",
   "replace": ["app"],
-  "exclude": ["logs", ".backup", "readme.md"]
+  "exclude": ["logs", ".backup", "readme.md"],
+  "lineage": {
+    "version": "1.1.0",
+    "parent": "20260301120000",
+    "created_at": "2026-04-06",
+    "note": "升级工具集，修复日志膨胀问题"
+  }
 }

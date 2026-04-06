@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 import httpx
 import os
+import json
 from app.core.config import settings
 from app.routers import manager, system, backup
 
@@ -84,11 +85,21 @@ async def list_agents():
                     except:
                         health = "Unreachable"
 
+                # 读取 template meta 信息
+                meta_path = os.path.join(workspace_dir, folder, ".meta")
+                template_info = {}
+                if os.path.exists(meta_path):
+                    with open(meta_path, 'r', encoding='utf-8') as f:
+                        template_info = json.load(f)
+                
                 all_agents.append({
                     "id": folder,
                     "port": port,
                     "status": status,
-                    "health": health
+                    "health": health,
+                    "template": template_info.get("template_name"),
+                    "template_id": template_info.get("template_id"),
+                    "template_version": template_info.get("template_version"),
                 })
     
     return all_agents
@@ -128,6 +139,31 @@ async def proxy_to_agent(agent_id: str, path: str, request: Request):
             )
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Error forwarding to agent: {str(e)}")
+
+@app.get("/api/templates")
+async def list_templates():
+    """获取所有模板及其 lineage 信息"""
+    import json
+    template_dir = settings.TEMPLATE_DIR
+    templates = []
+    
+    if os.path.exists(template_dir):
+        for folder in os.listdir(template_dir):
+            tpl_path = os.path.join(template_dir, folder)
+            config_path = os.path.join(tpl_path, ".template")
+            
+            if os.path.isdir(tpl_path) and os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    templates.append({
+                        "name": folder,
+                        "id": config.get("id", folder),
+                        "lineage": config.get("lineage", {}),
+                        "replace": config.get("replace", []),
+                        "exclude": config.get("exclude", [])
+                    })
+    
+    return {"templates": templates}
 
 @app.get("/health")
 async def health():

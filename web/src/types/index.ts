@@ -5,6 +5,8 @@ export interface Agent {
   status?: 'running' | 'stopped' | 'unknown';
   pid?: number;
   template?: string;
+  template_id?: string;
+  template_version?: string;
   createdAt?: string;
 }
 
@@ -46,4 +48,19 @@ export interface LineageNode {
   name: string;
   status: 'running' | 'stopped' | 'unknown';
   port?: number;
+}
+
+export interface TemplateLineage {
+  version: string;
+  parent: string | null;
+  created_at: string;
+  note: string;
+}
+
+export interface Template {
+  name: string;
+  id: string;
+  lineage: TemplateLineage;
+  replace: string[];
+  exclude: string[];
 }

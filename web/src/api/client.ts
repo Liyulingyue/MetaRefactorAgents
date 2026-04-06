@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Agent, ChatRequest, ChatResponse, CreateAgentRequest } from '../types';
+import type { Agent, ChatRequest, ChatResponse, CreateAgentRequest, Template } from '../types';
 
 const gateway = axios.create({ baseURL: '/api' });
 
@@ -7,6 +7,11 @@ export const agentApi = {
   listAgents: async (): Promise<Agent[]> => {
     const res = await gateway.get<Agent[]>('/agents');
     return res.data;
+  },
+
+  listTemplates: async (): Promise<Template[]> => {
+    const res = await gateway.get<{ templates: Template[] }>('/templates');
+    return res.data.templates;
   },
 
   createAgent: async (data: CreateAgentRequest) => {

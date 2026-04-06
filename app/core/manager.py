@@ -1,5 +1,6 @@
 import shutil
 import os
+import json
 import subprocess
 from app.core.config import settings
 
@@ -16,6 +17,22 @@ def init_agent_workspace(agent_id: str, template_name: str = "default") -> str:
     
     # 递归复制
     shutil.copytree(template_path, workspace_path)
+    
+    # 记录 template lineage 到 .meta 文件
+    tpl_config_path = os.path.join(template_path, ".template")
+    if os.path.exists(tpl_config_path):
+        with open(tpl_config_path, 'r', encoding='utf-8') as f:
+            template_config = json.load(f)
+        meta_path = os.path.join(workspace_path, ".meta")
+        with open(meta_path, 'w', encoding='utf-8') as f:
+            json.dump({
+                "template_name": template_name,
+                "template_id": template_config.get("id"),
+                "template_version": template_config.get("lineage", {}).get("version"),
+                "parent_id": template_config.get("lineage", {}).get("parent"),
+                "created_at": template_config.get("lineage", {}).get("created_at"),
+            }, f, indent=2)
+    
     return workspace_path
 
 def start_agent_process(agent_id: str, port: int):

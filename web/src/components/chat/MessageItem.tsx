@@ -3,6 +3,7 @@ import type { SVGProps } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, ToolCall } from '../../types';
+import { MermaidRender } from './MermaidRender';
 
 interface MessageItemProps {
   msg: Message;
@@ -118,12 +119,20 @@ function parseThoughts(content: string): { thought: string | null; body: string 
 
 const markdownComponents = {
   code({ node: _node, inline, className, children, ...props }: any) {
+    const match = /language-(\w+)/.exec(className || '');
+    const isMermaid = match?.[1] === 'mermaid';
+
     if (inline) {
       return <code style={{
         padding: '2px 5px', borderRadius: '4px', background: 'rgba(0,0,0,0.2)',
         fontFamily: 'monospace', fontSize: '0.9em',
       }} {...props}>{children}</code>;
     }
+
+    if (isMermaid) {
+      return <MermaidRender code={String(children).replace(/\n$/, '')} />;
+    }
+
     return <code className={className} style={{
       padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.25)',
       display: 'block', overflowX: 'auto', fontSize: '12px', lineHeight: 1.5,

@@ -1,4 +1,12 @@
 {
+  "id": "20260301120000",
+  "name": "default",
   "replace": ["app"],
-  "exclude": ["logs", ".backup", "readme.md"]
+  "exclude": ["logs", ".backup", "readme.md"],
+  "lineage": {
+    "version": "1.0.0",
+    "parent": null,
+    "created_at": "2026-03-01",
+    "note": "初始模板"
+  }
 }

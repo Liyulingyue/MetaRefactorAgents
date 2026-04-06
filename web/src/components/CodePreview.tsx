@@ -19,7 +19,7 @@ interface CodePreviewProps {
 
 function MermaidDiagram({ code }: { code: string }) {
   const [svg, setSvg] = useState('');
-  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const escapePipesInNodeLabels = (input: string) => {
     return input
@@ -35,7 +35,19 @@ function MermaidDiagram({ code }: { code: string }) {
     let cancelled = false;
     const normalizedCode = code.trim();
     setSvg('');
-    setError(false);
+    setErrorMessage(null);
+
+    const getErrorMessage = (err: unknown) => {
+      if (err instanceof Error && err.message) {
+        return err.message;
+      }
+
+      if (typeof err === 'string' && err.trim()) {
+        return err;
+      }
+
+      return 'Mermaid 图解析失败';
+    };
 
     import('mermaid').then((mermaid) => {
       if (cancelled) return;
@@ -47,19 +59,22 @@ function MermaidDiagram({ code }: { code: string }) {
 
       const renderMermaid = async (mermaidCode: string) => {
         const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
+        await mermaid.default.parse(mermaidCode);
         const result = await mermaid.default.render(id, mermaidCode);
-        if (!cancelled) setSvg(result.svg);
+        if (cancelled) return;
+
+        setSvg(result.svg);
       };
 
-      renderMermaid(normalizedCode).catch(() => {
+      renderMermaid(normalizedCode).catch((err) => {
         const fallbackCode = escapePipesInNodeLabels(normalizedCode);
         if (fallbackCode === normalizedCode) {
-          if (!cancelled) setError(true);
+          if (!cancelled) setErrorMessage(getErrorMessage(err));
           return;
         }
 
-        renderMermaid(fallbackCode).catch(() => {
-          if (!cancelled) setError(true);
+        renderMermaid(fallbackCode).catch((fallbackErr) => {
+          if (!cancelled) setErrorMessage(getErrorMessage(fallbackErr));
         });
       });
     });
@@ -69,11 +84,40 @@ function MermaidDiagram({ code }: { code: string }) {
     };
   }, [code]);
 
+  if (errorMessage) {
+    return (
+      <div style={{
+        margin: '8px 0',
+        padding: '10px 12px',
+        borderRadius: '10px',
+        background: 'rgba(239, 68, 68, 0.08)',
+        border: '1px solid rgba(239, 68, 68, 0.25)',
+        color: '#fca5a5',
+        fontSize: '12px',
+        lineHeight: 1.5,
+      }}>
+        <div style={{ fontWeight: 700, marginBottom: '4px' }}>Mermaid 图解析失败</div>
+        <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{errorMessage}</div>
+        <details style={{ marginTop: '8px' }}>
+          <summary style={{ cursor: 'pointer', color: '#fda4af' }}>查看原始图内容</summary>
+          <pre style={{
+            margin: '8px 0 0',
+            padding: '8px',
+            borderRadius: '8px',
+            background: 'rgba(0,0,0,0.18)',
+            color: 'var(--text-secondary)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            overflowX: 'auto',
+          }}>{code.trim()}</pre>
+        </details>
+      </div>
+    );
+  }
+
   return (
     <div style={{ background: 'rgba(0,0,0,0.15)', borderRadius: '8px', padding: '12px', margin: '8px 0', overflowX: 'auto' }}>
-      {error ? (
-        <pre style={{ fontSize: '12px', color: 'var(--error)' }}>{code.trim()}</pre>
-      ) : svg ? (
+      {svg ? (
         <div dangerouslySetInnerHTML={{ __html: svg }} />
       ) : (
         <pre style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{code.trim()}</pre>

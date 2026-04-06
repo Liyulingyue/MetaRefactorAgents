@@ -37,7 +37,7 @@ export function AgentTable({
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-            {['Agent ID', 'Port', 'Status', 'Health', 'Actions'].map(h => (
+            {['Agent ID', 'Template', 'Port', 'Status', 'Health', 'Actions'].map(h => (
               <th key={h} style={{
                 padding: '12px 24px', textAlign: 'left',
                 fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)',
