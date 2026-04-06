@@ -1,0 +1,4 @@
+{
+  "replace": ["app"],
+  "exclude": ["logs", ".backup", "readme.md"]
+}

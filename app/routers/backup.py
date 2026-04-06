@@ -5,6 +5,7 @@ import os
 import shutil
 import datetime
 import zipfile
+import json
 from typing import List, Optional
 from app.core.config import settings
 
@@ -173,3 +174,98 @@ async def delete_backup(agent_id: str, name: str):
         return {"status": "success", "message": f"Deleted {name}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+
+class TemplateInfo(BaseModel):
+    name: str
+    description: str
+    path: str
+    replace: List[str]
+    exclude: List[str]
+
+
+@router.get("/templates", response_model=List[TemplateInfo])
+async def list_templates():
+    if not os.path.exists(settings.TEMPLATE_DIR):
+        return []
+    templates = []
+    for name in os.listdir(settings.TEMPLATE_DIR):
+        tpl_path = os.path.join(settings.TEMPLATE_DIR, name)
+        if os.path.isdir(tpl_path):
+            desc_file = os.path.join(tpl_path, "readme.md")
+            description = ""
+            if os.path.exists(desc_file):
+                with open(desc_file, "r", encoding="utf-8") as f:
+                    description = f.read().strip()
+            config_path = os.path.join(tpl_path, ".template")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    replace = cfg.get("replace", ["app"])
+                    exclude = cfg.get("exclude", [])
+            else:
+                replace = ["app"]
+                exclude = []
+            templates.append(TemplateInfo(name=name, description=description, path=tpl_path, replace=replace, exclude=exclude))
+    return templates
+
+
+class ApplyTemplateRequest(BaseModel):
+    template_name: str
+    auto_backup: bool = True
+
+
+@router.post("/apply-template/{agent_id}")
+async def apply_template(agent_id: str, req: ApplyTemplateRequest):
+    tpl_path = os.path.join(settings.TEMPLATE_DIR, req.template_name)
+    if not os.path.exists(tpl_path):
+        raise HTTPException(status_code=404, detail=f"Template {req.template_name} not found")
+
+    agent_root = os.path.join(settings.WORKSPACE_DIR, agent_id)
+    if not os.path.exists(agent_root):
+        raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+
+    config_path = os.path.join(tpl_path, ".template")
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        replace_items = cfg.get("replace", ["app"])
+        exclude = set(cfg.get("exclude", []))
+    else:
+        replace_items = ["app"]
+        exclude = set()
+
+    try:
+        for item in replace_items:
+            tpl_src = os.path.join(tpl_path, item)
+            agent_dst = os.path.join(agent_root, item)
+            if not os.path.exists(tpl_src):
+                raise HTTPException(status_code=400,
+                    detail=f"Template {req.template_name} item '{item}' not found")
+
+            if req.auto_backup and os.path.exists(agent_dst):
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_dir = ensure_backup_dir(agent_id)
+                backup_path = os.path.join(backup_dir, f"auto_before_{item}_{req.template_name}_{timestamp}.zip")
+                with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for root, dirs, files in os.walk(agent_dst):
+                        dirs[:] = [d for d in dirs if d not in exclude and d != "__pycache__"]
+                        for f in files:
+                            fp = os.path.join(root, f)
+                            arcname = os.path.relpath(fp, agent_dst)
+                            zipf.write(fp, arcname)
+
+            if os.path.isdir(tpl_src):
+                if os.path.exists(agent_dst):
+                    shutil.rmtree(agent_dst)
+                shutil.copytree(tpl_src, agent_dst)
+            else:
+                if os.path.exists(agent_dst):
+                    os.remove(agent_dst)
+                shutil.copy2(tpl_src, agent_dst)
+
+        return {"status": "success", "message": f"Applied template {req.template_name} to {agent_id}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Apply template failed: {str(e)}")

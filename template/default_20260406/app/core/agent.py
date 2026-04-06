@@ -6,6 +6,8 @@ from openai import OpenAI
 from .tools import TOOL_SCHEMAS, handle_tool_call
 from .config import settings
 
+MAX_THOUGHTS_SIZE = 100 * 1024
+
 class Agent:
     def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
         self.client = OpenAI(
@@ -15,8 +17,7 @@ class Agent:
         self.model = model or settings.OPENAI_MODEL_NAME
         self.agent_id = os.getenv("AGENT_ID", "unknown")
         self.thought_log_path = f"logs/thoughts.md"
-        
-        # 确保日志目录存在
+        self.error_log_path = f"logs/error.log"
         os.makedirs("logs", exist_ok=True)
         
         self.system_prompt = (
@@ -39,11 +40,27 @@ class Agent:
             "4. RESPONSE: Provide clear, concise reports on your changes."
         )
 
+    def _archive_and_reset(self):
+        os.makedirs("logs/archived", exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        archive_path = f"logs/archived/thoughts_{ts}.md"
+        os.rename(self.thought_log_path, archive_path)
+        with open(self.thought_log_path, "w", encoding="utf-8") as f:
+            f.write(f"# Thoughts Log (archived: {ts})\n\n")
+
     def log_thought(self, role: str, content: str):
-        """记录思维日志到本地文件"""
+        if os.path.exists(self.thought_log_path):
+            size = os.path.getsize(self.thought_log_path)
+            if size >= MAX_THOUGHTS_SIZE:
+                self._archive_and_reset()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(self.thought_log_path, "a", encoding="utf-8") as f:
             f.write(f"## [{timestamp}] {role.upper()}\n{content}\n\n")
+
+    def log_error(self, context: str, exc: Exception):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(self.error_log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {context}: {type(exc).__name__}: {exc}\n")
 
     def run(self, prompt: str, history: List[Dict] = None, on_update: Optional[Callable[[Dict], None]] = None):
         if history is None:
@@ -105,13 +122,19 @@ class Agent:
             if tool_calls:
                 for tool_call in tool_calls:
                     name = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments)
-                    
-                    self.log_thought("tool_call", f"Calling {name} with {json.dumps(args)}")
-                    result = handle_tool_call(name, args)
-                    self.log_thought("tool_result", f"Result: {result}")
-                    print(f"Tool Call: {name}({args})")
-                    print(f"Result: {result[:100]}...")
+                    try:
+                        args = json.loads(tool_call.function.arguments)
+                    except Exception as e:
+                        self.log_error(f"Parse args for {name}", e)
+                        result = f"Error parsing arguments: {e}"
+                    else:
+                        self.log_thought("tool_call", f"Calling {name} with {json.dumps(args)}")
+                        try:
+                            result = handle_tool_call(name, args)
+                        except Exception as e:
+                            self.log_error(f"execute tool {name}", e)
+                            result = f"Error executing {name}: {e}"
+                        self.log_thought("tool_result", f"Result: {result}")
 
                     history.append({
                         "role": "tool",

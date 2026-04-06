@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Download, RotateCcw, Trash2, ShieldPlus, FileArchive, Clock, HardDrive, Archive, FolderOpen, CheckSquare, Square } from 'lucide-react';
+import { RefreshCw, Download, RotateCcw, Trash2, ShieldPlus, FileArchive, Clock, HardDrive, Archive, FolderOpen, CheckSquare, Square, LayoutTemplate, Zap, Info, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { FileTree } from '../components/FileTree';
 import { agentApi, backupApi } from '../api/client';
 
@@ -18,6 +20,14 @@ interface AgentFile {
   mtime: number;
 }
 
+interface Template {
+  name: string;
+  description: string;
+  path: string;
+  replace: string[];
+  exclude: string[];
+}
+
 export default function BackupManager() {
   const [agents, setAgents] = useState<string[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>('');
@@ -28,6 +38,11 @@ export default function BackupManager() {
   const [backupName, setBackupName] = useState('');
   const [backups, setBackups] = useState<Backup[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [autoBackup, setAutoBackup] = useState(true);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [readmeModal, setReadmeModal] = useState<{ name: string; content: string } | null>(null);
 
   const fetchAgents = async () => {
     try {
@@ -66,8 +81,27 @@ export default function BackupManager() {
     }
   };
 
-  useEffect(() => { fetchAgents(); }, []);
-  useEffect(() => { fetchBackups(); }, []);
+  useEffect(() => { fetchAgents(); fetchBackups(); fetchTemplates(); }, []);
+
+  const fetchTemplates = async () => {
+    try {
+      const data = await backupApi.listTemplates();
+      setTemplates(data);
+      if (data.length > 0) setSelectedTemplate(data[0].name);
+    } catch (err) {
+      console.error('Failed to fetch templates', err);
+    }
+  };
+
+  const fetchReadme = async (tplName: string) => {
+    try {
+      const data = await backupApi.listTemplates();
+      const tpl = data.find((t: Template) => t.name === tplName);
+      if (tpl) setReadmeModal({ name: tpl.name, content: tpl.description || '无说明文档' });
+    } catch (err) {
+      console.error('Failed to fetch readme', err);
+    }
+  };
 
   useEffect(() => {
     if (selectedAgent) fetchFiles(selectedAgent);
@@ -127,6 +161,25 @@ export default function BackupManager() {
     }
   };
 
+  const handleApplyTemplate = async () => {
+    if (!selectedAgent || !selectedTemplate) return;
+    const msg = autoBackup
+      ? `将自动创建备份后应用模板 ${selectedTemplate} 到 ${selectedAgent}，继续？`
+      : `将直接应用模板 ${selectedTemplate} 到 ${selectedAgent}（不创建备份），继续？`;
+    if (!window.confirm(msg)) return;
+    setApplyLoading(true);
+    setMessage(null);
+    try {
+      await backupApi.applyTemplate(selectedAgent, selectedTemplate, autoBackup);
+      setMessage({ type: 'success', text: `模板 ${selectedTemplate} 已应用到 ${selectedAgent}` });
+      fetchBackups();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err?.response?.data?.detail || '应用模板失败' });
+    } finally {
+      setApplyLoading(false);
+    }
+  };
+
   const handleDelete = async (backup: Backup) => {
     if (!window.confirm(`确定要删除备份 ${backup.name} 吗？`)) return;
     setLoading(true);
@@ -160,6 +213,43 @@ export default function BackupManager() {
   const otherBackups = backups.filter(b => b.agent_id !== selectedAgent);
 
   return (
+    <>
+      {readmeModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000,
+        }} onClick={() => setReadmeModal(null)}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: '16px', width: '600px', maxWidth: '90vw',
+            maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px', borderBottom: '1px solid var(--border)',
+            }}>
+              <div style={{ fontSize: '15px', fontWeight: 600 }}>{readmeModal.name}</div>
+              <button onClick={() => setReadmeModal(null)} style={{
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                color: 'var(--text-muted)', display: 'flex', padding: '4px',
+              }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{
+              padding: '20px', overflow: 'auto', flex: 1,
+              fontSize: '13px', lineHeight: 1.7, color: 'var(--text-primary)',
+            }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {readmeModal.content}
+              </ReactMarkdown>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div style={{ padding: '24px', height: '100%', overflow: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
@@ -287,6 +377,70 @@ export default function BackupManager() {
             >
               {loading ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <HardDrive size={12} />}
               创建备份 ({selectedPaths.size > 0 && selectedPaths.size < agentFiles.length ? `${selectedPaths.size} 个文件` : '全部文件'})
+            </button>
+          </div>
+
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
+            padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '14px', fontWeight: 500 }}>
+              <LayoutTemplate size={14} style={{ color: 'var(--accent)' }} />
+              应用模板
+            </div>
+
+            <select
+              value={selectedTemplate}
+              onChange={e => setSelectedTemplate(e.target.value)}
+              disabled={!selectedAgent}
+              style={{
+                width: '100%', padding: '8px 12px', marginBottom: '10px',
+                background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+                border: '1px solid var(--border)', borderRadius: '8px',
+                fontSize: '13px', outline: 'none', cursor: 'pointer',
+              }}
+            >
+              {templates.length === 0 && <option value="">-- 无可用模板 --</option>}
+              {templates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+            </select>
+
+            {selectedTemplate && (
+              <button
+                onClick={() => fetchReadme(selectedTemplate)}
+                style={{
+                  width: '100%', padding: '6px 8px', marginBottom: '10px',
+                  background: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)', borderRadius: '8px',
+                  fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                }}
+              >
+                <Info size={11} /> 查看说明
+              </button>
+            )}
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={autoBackup}
+                onChange={e => setAutoBackup(e.target.checked)}
+              />
+              应用前自动创建备份
+            </label>
+
+            <button
+              disabled={applyLoading || !selectedAgent || !selectedTemplate}
+              onClick={handleApplyTemplate}
+              style={{
+                width: '100%', padding: '8px',
+                background: 'rgba(234,88,12,0.1)', color: '#ea580c',
+                border: '1px solid rgba(234,88,12,0.25)', borderRadius: '8px',
+                fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                opacity: (applyLoading || !selectedAgent || !selectedTemplate) ? 0.6 : 1,
+              }}
+            >
+              {applyLoading ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Zap size={12} />}
+              升级
             </button>
           </div>
         </div>
@@ -446,5 +600,6 @@ export default function BackupManager() {
         </div>
       </div>
     </div>
+    </>
   );
 }

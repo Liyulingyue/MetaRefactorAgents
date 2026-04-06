@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { FileText, Loader2 } from 'lucide-react';
-import { marked } from 'marked';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import hljs from 'highlight.js/lib/core';
 import python from 'highlight.js/lib/languages/python';
 
@@ -15,8 +17,95 @@ interface CodePreviewProps {
   onModeChange?: (mode: RenderMode) => void;
 }
 
+function MermaidDiagram({ code }: { code: string }) {
+  const [svg, setSvg] = useState('');
+  const [error, setError] = useState(false);
+
+  const escapePipesInNodeLabels = (input: string) => {
+    return input
+      .split('\n')
+      .map((line) => line
+        .replace(/(\[[^\]\n]*?)\|(.*?\])/g, '$1&#124;$2')
+        .replace(/(\([^\)\n]*?)\|(.*?\))/g, '$1&#124;$2')
+        .replace(/(\{[^\}\n]*?)\|(.*?\})/g, '$1&#124;$2'))
+      .join('\n');
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const normalizedCode = code.trim();
+    setSvg('');
+    setError(false);
+
+    import('mermaid').then((mermaid) => {
+      if (cancelled) return;
+      mermaid.default.initialize({
+        startOnLoad: false,
+        securityLevel: 'loose',
+        theme: 'default',
+      });
+
+      const renderMermaid = async (mermaidCode: string) => {
+        const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
+        const result = await mermaid.default.render(id, mermaidCode);
+        if (!cancelled) setSvg(result.svg);
+      };
+
+      renderMermaid(normalizedCode).catch(() => {
+        const fallbackCode = escapePipesInNodeLabels(normalizedCode);
+        if (fallbackCode === normalizedCode) {
+          if (!cancelled) setError(true);
+          return;
+        }
+
+        renderMermaid(fallbackCode).catch(() => {
+          if (!cancelled) setError(true);
+        });
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.15)', borderRadius: '8px', padding: '12px', margin: '8px 0', overflowX: 'auto' }}>
+      {error ? (
+        <pre style={{ fontSize: '12px', color: 'var(--error)' }}>{code.trim()}</pre>
+      ) : svg ? (
+        <div dangerouslySetInnerHTML={{ __html: svg }} />
+      ) : (
+        <pre style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{code.trim()}</pre>
+      )}
+    </div>
+  );
+}
+
+const markdownComponents = {
+  code({ inline, className, children, ...props }: any) {
+    if (inline) {
+      return <code style={{
+        padding: '2px 5px', borderRadius: '4px', background: 'rgba(0,0,0,0.2)',
+        fontFamily: 'monospace', fontSize: '0.9em',
+      }} {...props}>{children}</code>;
+    }
+
+    if (/language-mermaid/.test(className || '')) {
+      return <MermaidDiagram code={String(children)} />;
+    }
+
+    return <pre style={{ margin: '8px 0', padding: 0, background: 'transparent', border: 'none' }}>
+      <code className={className} style={{
+        padding: '12px', borderRadius: '8px', background: 'rgba(0,0,0,0.25)',
+        display: 'block', overflowX: 'auto', fontSize: '12px', lineHeight: 1.5,
+        whiteSpace: 'pre-wrap',
+      }} {...props}>{children}</code>
+    </pre>;
+  },
+};
+
 function MarkdownPreview({ content }: { content: string }) {
-  const html = marked(content);
   return (
     <div
       className="markdown-body"
@@ -27,8 +116,11 @@ function MarkdownPreview({ content }: { content: string }) {
         color: 'var(--text-primary)',
         lineHeight: 1.7,
       }}
-      dangerouslySetInnerHTML={{ __html: html as string }}
-    />
+    >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 }
 

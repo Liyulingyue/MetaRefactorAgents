@@ -124,4 +124,17 @@ export const backupApi = {
   getDownloadUrl: (name: string, agentId: string): string => {
     return `/api/backup/download/${encodeURIComponent(agentId)}/${encodeURIComponent(name)}`;
   },
+
+  listTemplates: async () => {
+    const res = await gateway.get('/backup/templates');
+    return res.data;
+  },
+
+  applyTemplate: async (agentId: string, templateName: string, autoBackup: boolean = true) => {
+    const res = await gateway.post(`/backup/apply-template/${agentId}`, {
+      template_name: templateName,
+      auto_backup: autoBackup,
+    });
+    return res.data;
+  },
 };

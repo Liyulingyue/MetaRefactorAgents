@@ -146,8 +146,7 @@ export default function Chat() {
     setLoading(true);
     try {
       const res = await agentApi.chat(selectedAgent, { prompt: currentInput, history: messages });
-      const assistantMsg = { role: 'assistant' as const, content: res.response };
-      const newMessages = [...updatedMessages, assistantMsg];
+      const newMessages = res.history;
       setMessages(newMessages);
       const newHistories = { ...histories, [selectedAgent]: newMessages };
       setHistories(newHistories);
