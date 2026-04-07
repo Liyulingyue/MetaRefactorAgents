@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable
 from openai import OpenAI
-from .tools import TOOL_SCHEMAS, handle_tool_call
+from .tools import TOOL_SCHEMAS, handle_tool_call, get_plan_service
 from .config import settings
 
 MAX_THOUGHTS_SIZE = 100 * 1024
@@ -32,6 +32,13 @@ class Agent:
             "5. FILE SHARING: You have a private workspace (./) and access to a shared workspace (../shared_files/).\n"
             "   - Place final reports, patents, or assets intended for the user in your root directory or '../shared_files/'.\n"
             "   - The user can view and download files from these areas via the Dashboard.\n"
+            "\n"
+            "ENGINEERING PLANNER PROTOCOL:\n"
+            "1. STRUCTURE: For multi-step tasks (e.g., patent writing), you MUST use 'create_plan' to define the workflow.\n"
+            "2. EXECUTION: Use 'execute_next_plan_task' to fetch the next instruction from your active plan.\n"
+            "3. UPDATING: After EACH task, you MUST call 'update_task_progress' to mark it as 'completed' (or 'failed') and provide findings.\n"
+            "4. ADAPTATION: If a task's result changes the project scope, use 'add_task_to_plan' to modify your remaining work.\n"
+            "5. COMPLETION: Once all plan tasks are done, provide a final summary to the user.\n"
             "\n"
             "CORE PROTOCOL:\n"
             "1. ANALYZE: Understand the mission and identification of the target agent.\n"
@@ -72,8 +79,24 @@ class Agent:
         if on_update:
             on_update(history[-1])
 
+        # 获取当前所有活跃计划
+        service = get_plan_service()
+        plans = service.list_plans()
+        active_plans = [p for p in plans if p["status"] == "pending" or p["status"] == "running"]
+        
+        plan_context = ""
+        if active_plans:
+            plan_context = "\nACTIVE ENGINEERING PLANS:\n"
+            for p in active_plans:
+                plan_context += f"- Plan [{p['name']}] (ID: {p['id']}): Current Task Index: {p.get('current_task_index', 0)} / {len(p.get('tasks', []))}\n"
+            plan_context += "\nNOTE: If you are currently working on a plan, use 'execute_next_plan_task' to proceed."
+
         while True:
-            messages = [{"role": "system", "content": self.system_prompt}] + history
+            system_msg = self.system_prompt
+            if plan_context:
+                system_msg += plan_context
+                
+            messages = [{"role": "system", "content": system_msg}] + history
             
             openai_tools = [
                 {

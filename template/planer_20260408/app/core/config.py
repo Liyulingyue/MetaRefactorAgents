@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Workspace Settings
     WORKSPACE_ROOT: str = "./workspace"
-    ACTIVE_TEMPLATE: str = "default"
+    ACTIVE_TEMPLATE: str = "planer_20260408"
 
     model_config = {
         "env_file": [".env", "../../.env"],

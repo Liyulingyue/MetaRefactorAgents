@@ -2,7 +2,16 @@ import subprocess
 import os
 import requests
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from .plan import PlanService
+
+_plan_service: Optional[PlanService] = None
+
+def get_plan_service() -> PlanService:
+    global _plan_service
+    if _plan_service is None:
+        _plan_service = PlanService()
+    return _plan_service
 
 class AgentTools:
     @staticmethod
@@ -167,6 +176,70 @@ class AgentTools:
         except Exception as e:
             return f"Error publishing file: {str(e)}"
 
+    @staticmethod
+    def create_plan(name: str, description: str = "", tasks: Optional[List[dict]] = None) -> str:
+        """创建一个新的任务计划"""
+        try:
+            service = get_plan_service()
+            plan = service.create_plan(name=name, description=description, tasks=tasks)
+            return f"Plan created successfully. ID: {plan.id}, Name: {plan.name}"
+        except Exception as e:
+            return f"Error creating plan: {str(e)}"
+
+    @staticmethod
+    def add_task_to_plan(plan_id: str, name: str, action: str, params: Optional[dict] = None, depends_on: Optional[List[str]] = None) -> str:
+        """向现有计划添加任务"""
+        try:
+            service = get_plan_service()
+            task_data = {
+                "name": name,
+                "action": action,
+                "params": params or {},
+                "depends_on": depends_on or []
+            }
+            task = service.add_task(plan_id, task_data)
+            if not task:
+                return f"Error: Plan {plan_id} not found"
+            return f"Task added to plan {plan_id}. Task ID: {task.id}"
+        except Exception as e:
+            return f"Error adding task: {str(e)}"
+
+    @staticmethod
+    def get_plan_status(plan_id: str) -> str:
+        """获取计划的当前状态和进度"""
+        try:
+            service = get_plan_service()
+            plan = service.get_plan(plan_id)
+            if not plan:
+                return f"Error: Plan {plan_id} not found"
+            return json.dumps(plan.to_dict(), indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Error getting plan: {str(e)}"
+
+    @staticmethod
+    def update_task_progress(plan_id: str, task_id: str, status: str, result: Optional[dict] = None) -> str:
+        """更新任务状态 (pending, running, completed, failed)"""
+        try:
+            service = get_plan_service()
+            task = service.update_task_status(plan_id, task_id, status, result)
+            if not task:
+                return f"Error: Plan or task not found"
+            return f"Task {task_id} in Plan {plan_id} updated to {status}"
+        except Exception as e:
+            return f"Error updating task: {str(e)}"
+
+    @staticmethod
+    def execute_next_plan_task(plan_id: str) -> str:
+        """执行计划中的下一个待办任务。这会返回任务详情。"""
+        try:
+            service = get_plan_service()
+            result = service.execute_next_task(plan_id)
+            if not result:
+                return f"No more pending tasks in Plan {plan_id} or Plan completed."
+            return json.dumps(result, indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Error executing next task: {str(e)}"
+
 TOOL_SCHEMAS = [
     {
         "name": "execute_bash",
@@ -294,6 +367,81 @@ TOOL_SCHEMAS = [
             },
             "required": ["file_path", "pattern"]
         }
+    },
+    {
+        "name": "create_plan",
+        "description": "Create a new multi-step engineering plan. Use for complex tasks like patent writing or code refactoring.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Short name for the plan"},
+                "description": {"type": "string", "description": "Detailed goal of the plan"},
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Task name"},
+                            "action": {"type": "string", "description": "Tool name (e.g., execute_bash, write_file)"},
+                            "params": {"type": "object", "description": "Tool parameters"},
+                            "depends_on": {"type": "array", "items": {"type": "string"}, "description": "Task IDs this task depends on"}
+                        }
+                    }
+                }
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "add_task_to_plan",
+        "description": "Append a new task to an existing plan.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "Plan ID"},
+                "name": {"type": "string", "description": "Task name"},
+                "action": {"type": "string", "description": "Tool name"},
+                "params": {"type": "object", "description": "Tool parameters", "nullable": true},
+                "depends_on": {"type": "array", "items": {"type": "string"}, "nullable": true}
+            },
+            "required": ["plan_id", "name", "action"]
+        }
+    },
+    {
+        "name": "get_plan_status",
+        "description": "Inspect the overall status and detailed task results of a plan.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "Plan ID"}
+            },
+            "required": ["plan_id"]
+        }
+    },
+    {
+        "name": "update_task_progress",
+        "description": "MUST CALL: Update a task's status (running, completed, failed) and attach results for subsequent tasks to use.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "Plan ID"},
+                "task_id": {"type": "string", "description": "Task ID"},
+                "status": {"type": "string", "enum": ["pending", "running", "completed", "failed"]},
+                "result": {"type": "object", "description": "Outcome of the task execution"}
+            },
+            "required": ["plan_id", "task_id", "status"]
+        }
+    },
+    {
+        "name": "execute_next_plan_task",
+        "description": "ENGINEERING ENGINE: Request the next high-priority pending task from the plan and set it to 'running'.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "Plan ID"}
+            },
+            "required": ["plan_id"]
+        }
     }
 ]
 
@@ -320,4 +468,14 @@ def handle_tool_call(name: str, args: Dict[str, Any]) -> str:
         return AgentTools.tail_file(args["file_path"], args.get("num_lines", 50))
     elif name == "grep_file":
         return AgentTools.grep_file(args["file_path"], args["pattern"])
+    elif name == "create_plan":
+        return AgentTools.create_plan(args["name"], args.get("description", ""), args.get("tasks", []))
+    elif name == "add_task_to_plan":
+        return AgentTools.add_task_to_plan(args["plan_id"], args["name"], args["action"], args.get("params", {}), args.get("depends_on", []))
+    elif name == "get_plan_status":
+        return AgentTools.get_plan_status(args["plan_id"])
+    elif name == "update_task_progress":
+        return AgentTools.update_task_progress(args["plan_id"], args["task_id"], args["status"], args.get("result", {}))
+    elif name == "execute_next_plan_task":
+        return AgentTools.execute_next_plan_task(args["plan_id"])
     return f"Unknown tool: {name}"

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import agent, health, files
+from app.routers import agent, health, files, plan
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -25,6 +25,7 @@ app.add_middleware(
 app.include_router(health.router, prefix=settings.API_V1_STR, tags=["system"])
 app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
 app.include_router(files.router, prefix=f"{settings.API_V1_STR}/files", tags=["files"])
+app.include_router(plan.router, prefix=f"{settings.API_V1_STR}/plans", tags=["plans"])
 
 @app.get("/", tags=["root"])
 async def root():
