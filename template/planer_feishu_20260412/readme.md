@@ -89,3 +89,40 @@ POST   /api/v1/plans/{plan_id}/resume              - 恢复计划
 - `exclude`：替换时要排除的目录/文件
 
 当前配置：替换 `app/` 和 `run.py`，Agent 的工作文件不受影响。
+
+## 飞书机器人集成
+
+### 消息流程
+```
+飞书群消息 → POST /api/v1/feishu/webhook → Agent 处理 → 回复到飞书
+```
+
+### 环境配置
+
+在 `.env` 文件中添加：
+
+```env
+FEISHU_APP_ID=cli_xxxxxxxxxxxxxx
+FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### 飞书开放平台配置
+
+1. 创建应用后，开启 **机器人** 能力
+2. 配置 **消息事件订阅**：
+   - `im.message.receive_v1` - 接收消息
+3. 配置 **请求地址** 为：`https://你的服务器地址/api/v1/feishu/webhook`
+
+### API 接口
+
+```
+GET  /api/v1/feishu/webhook  - 飞书验证回调
+POST /api/v1/feishu/webhook  - 接收飞书消息
+```
+
+### 核心文件
+
+| 文件 | 说明 |
+|------|------|
+| `app/core/feishu.py` | 飞书 SDK 封装，提供发消息能力 |
+| `app/routers/feishu.py` | Webhook 路由，解析消息并调用 Agent |

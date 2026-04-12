@@ -4,3 +4,4 @@ pydantic-settings
 openai
 httpx
 python-dotenv
+lark-oapi

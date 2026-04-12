@@ -8,5 +8,10 @@
     "parent": "20260408120000",
     "created_at": "2026-04-12",
     "note": "从 planer_20260408 继承，增加飞书机器人能力"
+  },
+  "feishu": {
+    "new_files": ["app/core/feishu.py", "app/routers/feishu.py"],
+    "modified_files": ["app/main.py", "app/core/config.py"],
+    "config_keys": ["FEISHU_APP_ID", "FEISHU_APP_SECRET"]
   }
 }

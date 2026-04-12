@@ -6,3 +6,4 @@ openai
 python-dotenv
 requests
 python-multipart
+lark-oapi

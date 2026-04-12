@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     WORKSPACE_ROOT: str = "./workspace"
     ACTIVE_TEMPLATE: str = "planer_20260408"
 
+    # Feishu Settings
+    FEISHU_APP_ID: str = ""
+    FEISHU_APP_SECRET: str = ""
+    FEISHU_BOT_NAME: str = "MRA Bot"
+    FEISHU_WEBHOOK_PATH: str = "/feishu/webhook"
+
     model_config = {
         "env_file": [".env", "../../.env"],
         "case_sensitive": True,

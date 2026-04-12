@@ -37,8 +37,8 @@ async def list_agents():
     workspace_dir = settings.WORKSPACE_DIR
     all_agents = []
     
-    # 预先扫描所有端口，用于发现已经运行但未注册的进程
-    active_ports = {}
+    # 2. 预先扫描所有端口及其所属的 cwd (工作目录)，确保精确识别哪个进程对应哪个 workspace
+    active_workspaces = {} # {abs_path: {"port": int, "pid": int}}
     try:
         import subprocess
         import re
@@ -49,58 +49,68 @@ async def list_agents():
                 port_match = re.search(r':(\d+)\s+', line)
                 pid_match = re.search(r'pid=(\d+)', line)
                 if port_match and pid_match:
-                    active_ports[int(port_match.group(1))] = int(pid_match.group(1))
+                    p_port = int(port_match.group(1))
+                    p_pid = int(pid_match.group(1))
+                    # 通过 /proc/pid/cwd 获取真实工作路径
+                    try:
+                        p_cwd = os.readlink(f"/proc/{p_pid}/cwd")
+                        active_workspaces[p_cwd] = {"port": p_port, "pid": p_pid}
+                    except:
+                        continue
     except:
         pass
 
     if os.path.exists(workspace_dir):
         for folder in os.listdir(workspace_dir):
-            # 过滤逻辑：排除非 Agent 目录或特定的 .shared 目录
             if folder == ".shared" or folder.startswith("."):
                 continue
-                
-            if os.path.isdir(os.path.join(workspace_dir, folder)):
-                proc_info = AGENT_PROCESSES.get(folder, {})
-                status = proc_info.get("status", "Stopped")
-                port = proc_info.get("port")
-                
-                # 自动发现逻辑：如果记录为停止，但相应端口已有进程在跑，则自动关联
-                if status == "Stopped":
-                    # 规则：Agent-01 -> 8001, Agent-02 -> 8002
-                    guess_port = 8000 + int(folder.split('-')[-1]) if '-' in folder else None
-                    if guess_port and guess_port in active_ports:
-                        port = guess_port
-                        pid = active_ports[guess_port]
-                        AGENT_PROCESSES[folder] = {"port": port, "pid": pid, "status": "Running"}
-                        status = "Running"
+            
+            abs_folder_path = os.path.abspath(os.path.join(workspace_dir, folder))
+            proc_info = AGENT_PROCESSES.get(folder, {})
+            status = proc_info.get("status", "Stopped")
+            port = proc_info.get("port")
+            
+            # 自动发现逻辑：以 /proc 系统信息的物理路径为准
+            if abs_folder_path in active_workspaces:
+                real_info = active_workspaces[abs_folder_path]
+                port = real_info["port"]
+                pid = real_info["pid"]
+                AGENT_PROCESSES[folder] = {"port": port, "pid": pid, "status": "Running"}
+                status = "Running"
+            else:
+                # 如果记录是在运行但实际上物理路径查不到进程，则重置为停止
+                if status == "Running":
+                    status = "Stopped"
+                    if folder in AGENT_PROCESSES:
+                        del AGENT_PROCESSES[folder]
 
-                health = "Unreachable"
-                # 如果记录为 Running，尝试真实探测端口连通性
-                if status == "Running" and port:
-                    try:
-                        async with httpx.AsyncClient() as client:
-                            resp = await client.get(f"http://localhost:{port}/api/v1/health", timeout=0.5)
-                            if resp.status_code == 200:
-                                health = "Healthy"
-                    except:
-                        health = "Unreachable"
+            health = "Unreachable"
+            # 如果记录为 Running，尝试真实探测端口连通性
+            if status == "Running" and port:
+                try:
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(f"http://localhost:{port}/api/v1/health", timeout=0.5)
+                        if resp.status_code == 200:
+                            health = "Healthy"
+                except:
+                    health = "Unreachable"
 
-                # 读取 template meta 信息
-                meta_path = os.path.join(workspace_dir, folder, ".meta")
-                template_info = {}
-                if os.path.exists(meta_path):
-                    with open(meta_path, 'r', encoding='utf-8') as f:
-                        template_info = json.load(f)
-                
-                all_agents.append({
-                    "id": folder,
-                    "port": port,
-                    "status": status,
-                    "health": health,
-                    "template": template_info.get("template_name"),
-                    "template_id": template_info.get("template_id"),
-                    "template_version": template_info.get("template_version"),
-                })
+            # 读取 template meta 信息
+            meta_path = os.path.join(workspace_dir, folder, ".meta")
+            template_info = {}
+            if os.path.exists(meta_path):
+                with open(meta_path, 'r', encoding='utf-8') as f:
+                    template_info = json.load(f)
+            
+            all_agents.append({
+                "id": folder,
+                "port": port,
+                "status": status,
+                "health": health,
+                "template": template_info.get("template_name"),
+                "template_id": template_info.get("template_id"),
+                "template_version": template_info.get("template_version"),
+            })
     
     return all_agents
 
