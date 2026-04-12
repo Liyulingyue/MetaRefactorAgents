@@ -10,6 +10,7 @@ interface AgentTableProps {
   onShowSettings: (id: string) => void;
   onStart: (agent: Agent) => void;
   onStop: (agent: Agent) => void;
+  onDelete: (agent: Agent) => void;
 }
 
 export function AgentTable({
@@ -19,7 +20,8 @@ export function AgentTable({
   onShowLogs,
   onShowSettings,
   onStart,
-  onStop
+  onStop,
+  onDelete
 }: AgentTableProps) {
   return (
     <div style={{
@@ -57,6 +59,7 @@ export function AgentTable({
               onShowSettings={onShowSettings}
               onStart={onStart}
               onStop={onStop}
+              onDelete={onDelete}
             />
           ))}
         </tbody>

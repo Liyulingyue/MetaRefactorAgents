@@ -49,6 +49,11 @@ export default function Dashboard() {
     catch (e) { console.error(e); }
   };
 
+  const handleDelete = async (agent: Agent) => {
+    try { await agentApi.deleteAgent(agent.id); await fetchAgents(); }
+    catch (e) { console.error(e); }
+  };
+
   const handleShowLogs = async (agentId: string) => {
     try {
       const logs = await agentApi.getAgentLogs(agentId);
@@ -164,6 +169,7 @@ export default function Dashboard() {
           onShowSettings={handleShowSettings}
           onStart={handleStart}
           onStop={handleStop}
+          onDelete={handleDelete}
         />
       )}
 

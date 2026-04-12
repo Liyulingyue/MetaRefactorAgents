@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PlusCircle, CheckCircle, AlertCircle, Terminal } from 'lucide-react';
 import { agentApi } from '../api/client';
 
@@ -7,8 +7,18 @@ const BASE_PORT = 8001;
 export default function CreateAgent() {
   const [agentId, setAgentId] = useState('');
   const [template, setTemplate] = useState('default');
+  const [templates, setTemplates] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'creating' | 'starting' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    agentApi.listTemplates().then(data => {
+      setTemplates(data.map(t => t.name));
+      if (data.length > 0) {
+        setTemplate(data[0].name);
+      }
+    });
+  }, []);
 
   const handleCreate = async () => {
     if (!agentId.trim()) return;
@@ -76,7 +86,7 @@ export default function CreateAgent() {
               borderRadius: '8px', fontSize: '13px', outline: 'none',
             }}
           >
-            <option value="default">Default</option>
+            {templates.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
             The template defines the agent's initial capabilities and toolset.

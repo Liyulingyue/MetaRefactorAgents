@@ -88,12 +88,16 @@ export const agentApi = {
 
   checkAgentHealth: async (agentId: string): Promise<boolean> => {
     try {
-      // 通过网关代理进行健康检查，而不是直接访问 localhost 端口
       await gateway.get(`/agents/${agentId}/health`, { timeout: 2000 });
       return true;
     } catch {
       return false;
     }
+  },
+
+  deleteAgent: async (agentId: string) => {
+    const res = await gateway.delete(`/admin/${agentId}`);
+    return res.data;
   },
 };
 

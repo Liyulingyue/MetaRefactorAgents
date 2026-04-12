@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Play, Square, MessageSquare, FileText, Settings2, Brain, FolderOpen } from 'lucide-react';
+import { Play, Square, MessageSquare, FileText, Settings2, Brain, FolderOpen, Trash2 } from 'lucide-react';
 import type { Agent } from '../../types';
 
 interface AgentRowProps {
@@ -10,6 +10,7 @@ interface AgentRowProps {
   onShowSettings: (id: string) => void;
   onStart: (agent: Agent) => void;
   onStop: (agent: Agent) => void;
+  onDelete: (agent: Agent) => void;
 }
 
 export function AgentRow({
@@ -19,7 +20,8 @@ export function AgentRow({
   onShowLogs,
   onShowSettings,
   onStart,
-  onStop
+  onStop,
+  onDelete
 }: AgentRowProps) {
   const isRunning = agent.status === 'running';
 
@@ -123,6 +125,18 @@ export function AgentRow({
               <Square size={12} />Stop
             </button>
           )}
+
+          <button onClick={() => {
+            if (confirm(`Delete agent "${agent.id}"? This cannot be undone.`)) {
+              onDelete(agent);
+            }
+          }} style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            padding: '5px 10px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)',
+            border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
+          }}>
+            <Trash2 size={12} />Delete
+          </button>
         </div>
       </td>
     </tr>

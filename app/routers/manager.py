@@ -1,5 +1,6 @@
 import os
 import signal
+import shutil
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from app.core.manager import init_agent_workspace, start_agent_process
@@ -20,6 +21,24 @@ async def create_agent(request: CreateAgentRequest):
         return {"status": "success", "agent_id": request.agent_id, "path": path}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/{agent_id}")
+async def delete_agent(agent_id: str, request: Request):
+    """删除 Agent 工作区并停止其进程"""
+    processes = request.app.state.processes
+
+    if agent_id in processes:
+        try:
+            os.kill(processes[agent_id]["pid"], signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        del processes[agent_id]
+
+    workspace_path = f"workspace/{agent_id}"
+    if os.path.exists(workspace_path):
+        shutil.rmtree(workspace_path)
+        return {"status": "success", "message": f"Agent {agent_id} deleted"}
+    raise HTTPException(status_code=404, detail="Agent workspace not found")
 
 @router.post("/{agent_id}/start")
 async def start_agent(agent_id: str, request: Request, port: Optional[str] = None):
