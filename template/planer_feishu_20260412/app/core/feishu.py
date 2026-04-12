@@ -22,17 +22,28 @@ class FeishuClient:
         if not self.is_enabled():
             return {"error": "Feishu client not configured"}
         
-        message = CreateMessageRequest.builder()\
-            .receive_id(receive_id)\
-            .receive_id_type(receive_id_type)\
-            .body(lark.im.v1.CreateMessageRequestBody.builder()
-                .msg_type(lark.im.v1.MsgType.text)
-                .content(lark.util.json_util.to_json({"text": str(content)}))
-                .build())\
-            .build()
-        
-        response = self.client.im.v1.message.create(message)
-        return response.body if response else {"error": "No response"}
+        try:
+            from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
+            request = CreateMessageRequest.builder()\
+                .receive_id_type(receive_id_type)\
+                .request_body(CreateMessageRequestBody.builder()
+                    .receive_id(receive_id)
+                    .msg_type("text")
+                    .content(json.dumps({"text": str(content)}))
+                    .build())\
+                .build()
+            
+            response = self.client.im.v1.message.create(request)
+            
+            if not response.success():
+                print(f"❌ Feishu send failed: {response.code} - {response.msg}")
+            else:
+                print(f"✅ Feishu reply sent: {receive_id}")
+            
+            return response.body if response else {"error": "No response"}
+        except Exception as e:
+            print(f"❌ Feishu API error: {e}")
+            return {"error": str(e)}
 
 feishu_client = FeishuClient()
 
@@ -46,20 +57,17 @@ async def start_feishu_ws():
         return
 
     def do_process_message(data) -> None:
-        """从 bytes 原始数据中处理飞书消息 (同步回调)"""
+        """从自动生成的事件对象中处理飞书消息 (同步回调)"""
         try:
             import json
-            body = json.loads(data.decode("utf-8"))
-            
-            # v1 结构兼容
-            event = body.get("event", {})
-            header = body.get("header", {})
-            
-            if header.get("event_type") == "im.message.receive_v1":
-                message = event.get("message", {})
-                if message.get("msg_type") == "text":
-                    chat_id = message.get("chat_id")
-                    content_raw = message.get("content", "{}")
+            # SDK 1.5.3 的事件处理器会自动反序列化为 P2ImMessageReceiveV1 对象
+            event = data.event
+            if event:
+                message = event.message
+                # 兼容性修复：message_type 替代 msg_type
+                if message and (getattr(message, "message_type", None) == "text" or getattr(message, "msg_type", None) == "text"):
+                    chat_id = message.chat_id
+                    content_raw = message.content or "{}"
                     try:
                         text = json.loads(content_raw).get("text", "").strip()
                     except:
