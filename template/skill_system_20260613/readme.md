@@ -41,7 +41,23 @@ Agent 能力以 Skill（技能包）形式管理：
 
 ## 完整工具集（16 个）
 
-基础工具 + Plan 工具（5）+ 原子化编辑工具（5）
+基础工具（6）+ Plan 工具（5）+ 原子化编辑工具（5）
+
+## Skill 注入机制
+
+Skill 通过**上下文注入**（system prompt）引入，无需独立 Tool。Agent 启动时自动在 system prompt 中看到所有可用 Skill 的摘要列表（名称、描述、可用性）。
+
+### 注入模式配置
+
+```env
+SKILLS_INJECTION_MODE=static   # 默认：启动时计算一次，之后不变
+SKILLS_INJECTION_MODE=dynamic  # 每轮 LLM 调用重新扫描 skills/ 目录
+```
+
+| 模式 | 优点 | 缺点 |
+|------|------|------|
+| `static` | token 开销稳定，无文件 IO | Agent 新增/修改 Skill 后需重启生效 |
+| `dynamic` | 实时反映最新 Skill 状态 | 每轮额外文件扫描开销 |
 
 ## 替换范围配置
 

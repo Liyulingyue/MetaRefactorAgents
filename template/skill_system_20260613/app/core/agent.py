@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, Callable
 from openai import OpenAI
 from .tools import TOOL_SCHEMAS, handle_tool_call, get_plan_service
 from .config import settings
+from .skills import SkillsLoader
 
 MAX_THOUGHTS_SIZE = 100 * 1024
 
@@ -19,7 +20,9 @@ class Agent:
         self.thought_log_path = f"logs/thoughts.md"
         self.error_log_path = f"logs/error.log"
         os.makedirs("logs", exist_ok=True)
-        
+
+        self.skills_loader = SkillsLoader(workspace_dir=".")
+
         self.system_prompt = (
             "You are a versatile and autonomous general-purpose agent (MRA).\n"
             "MRA (MetaRefactorAgents) is a system where agents collaborate to refactor code across the fleet.\n"
@@ -91,8 +94,14 @@ class Agent:
                 plan_context += f"- Plan [{p['name']}] (ID: {p['id']}): Current Task Index: {p.get('current_task_index', 0)} / {len(p.get('tasks', []))}\n"
             plan_context += "\nNOTE: If you are currently working on a plan, use 'execute_next_plan_task' to proceed."
 
+        skills_context = "\n" + self.skills_loader.build_skills_summary()
+
         while True:
             system_msg = self.system_prompt
+            if settings.SKILLS_INJECTION_MODE == "dynamic":
+                skills_context = "\n" + self.skills_loader.build_skills_summary()
+            if skills_context:
+                system_msg += skills_context
             if plan_context:
                 system_msg += plan_context
                 

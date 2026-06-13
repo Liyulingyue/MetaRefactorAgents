@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     FEISHU_BOT_NAME: str = "MRA Bot"
     FEISHU_WEBHOOK_PATH: str = "/feishu/webhook"
 
+    # Skills Settings
+    # "static": inject skills summary once at startup (low token cost)
+    # "dynamic": rebuild skills summary every LLM call (reflects latest skill state)
+    SKILLS_INJECTION_MODE: str = "static"
+
     model_config = {
         "env_file": [".env", "../../.env"],
         "case_sensitive": True,
