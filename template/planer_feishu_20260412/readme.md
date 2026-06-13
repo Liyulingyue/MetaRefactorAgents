@@ -1,98 +1,26 @@
-# Planer 20260408 Template
+# Planer Feishu 20260412 Template
 
-基于 default_20260406 增强，支持 Plan 任务计划编排功能。
+基于 `planer_20260408` 增强，新增**飞书机器人集成**。
 
-## 新增特性
+## 模板血缘
 
-### Plan 功能
-Agent 可通过 Tool 调用自主创建和管理任务计划：
+```
+default → default_20260406 → planer_20260408 → planer_feishu_20260412  ← 当前
+```
 
-| Tool | 功能 |
+## 核心新增功能
+
+### 飞书机器人
+
+支持飞书群消息接入与自动回复：
+
+| 文件 | 说明 |
 |------|------|
-| `create_plan` | 创建新计划，支持初始化任务列表 |
-| `add_task_to_plan` | 向现有计划添加任务 |
-| `get_plan_status` | 查看计划状态和任务详情 |
-| `update_task_progress` | 更新任务状态 (pending/running/completed/failed) |
-| `execute_next_plan_task` | 获取并执行下一个待办任务 |
-
-**数据存储：** `plans/` 目录（JSON 格式持久化）
-
-### Agent 自主工作流
-
-```
-1. create_plan(name="ResNet报告", tasks=[...])
-2. execute_next_plan_task(plan_id)  → 获取任务详情
-3. [执行任务逻辑]
-4. update_task_progress(plan_id, task_id, "completed", result={...})
-5. 重复步骤 2-4 直到所有任务完成
-```
-
-### 原子化编辑工具
-- `replace_string_in_file`：精确替换文件内容
-- `append_to_file`：追加内容到文件
-- `read_file_range`：读取文件指定行范围
-- `tail_file`：读取文件末尾 N 行
-- `grep_file`：在文件中搜索文本
-
-### 日志管理
-- `thoughts.md` 超过 100KB 自动归档到 `logs/archived/`
-- 工具调用异常写入 `logs/error.log`
-
-## Plan Tool 详细说明
-
-### create_plan
-```json
-{
-  "name": "ResNet报告",
-  "description": "撰写ResNet深度学习报告",
-  "tasks": [
-    {
-      "name": "搜索ResNet资料",
-      "action": "grep_file",
-      "params": {"file_path": ".", "pattern": "ResNet"}
-    },
-    {
-      "name": "生成报告草稿",
-      "action": "write_file",
-      "params": {"file_path": "report.md", "content": "# ResNet报告\n..."}
-    }
-  ]
-}
-```
-
-### 任务状态流转
-```
-pending → running → completed
-                    ↘ failed
-```
-
-## REST API
-
-Plan 功能也提供外部 REST API 接口：
-
-```
-GET    /api/v1/plans/                              - 列出所有计划
-POST   /api/v1/plans/                              - 创建计划
-GET    /api/v1/plans/{plan_id}                     - 获取计划详情
-DELETE /api/v1/plans/{plan_id}                     - 删除计划
-POST   /api/v1/plans/{plan_id}/tasks               - 添加任务
-PATCH  /api/v1/plans/{plan_id}/tasks/{task_id}/status  - 更新任务状态
-POST   /api/v1/plans/{plan_id}/next                - 执行下一个任务
-POST   /api/v1/plans/{plan_id}/pause               - 暂停计划
-POST   /api/v1/plans/{plan_id}/resume              - 恢复计划
-```
-
-## 替换范围配置
-
-由 `.template` 文件定义（JSON 格式）：
-- `replace`：要替换的目录/文件列表
-- `exclude`：替换时要排除的目录/文件
-
-当前配置：替换 `app/` 和 `run.py`，Agent 的工作文件不受影响。
-
-## 飞书机器人集成
+| `app/core/feishu.py` | 飞书 SDK 封装，提供消息发送能力 |
+| `app/routers/feishu.py` | Webhook 路由，解析消息并调用 Agent 处理 |
 
 ### 消息流程
+
 ```
 飞书群消息 → POST /api/v1/feishu/webhook → Agent 处理 → 回复到飞书
 ```
@@ -113,16 +41,42 @@ FEISHU_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
    - `im.message.receive_v1` - 接收消息
 3. 配置 **请求地址** 为：`https://你的服务器地址/api/v1/feishu/webhook`
 
-### API 接口
+## API 接口
 
 ```
 GET  /api/v1/feishu/webhook  - 飞书验证回调
 POST /api/v1/feishu/webhook  - 接收飞书消息
 ```
 
-### 核心文件
+## 继承特性
 
-| 文件 | 说明 |
-|------|------|
-| `app/core/feishu.py` | 飞书 SDK 封装，提供发消息能力 |
-| `app/routers/feishu.py` | Webhook 路由，解析消息并调用 Agent |
+### Plan 任务计划（来自 planer_20260408）
+`create_plan` · `add_task_to_plan` · `get_plan_status` · `update_task_progress` · `execute_next_plan_task`
+
+### 原子化编辑工具（来自 default_20260406）
+`replace_string_in_file` · `append_to_file` · `read_file_range` · `tail_file` · `grep_file`
+
+## 完整工具集（16 个）
+
+基础工具 + Plan 工具（5）+ 原子化编辑工具（5）
+
+飞书消息通过独立 Webhook 路由处理，不作为 LLM Tool。
+
+## 替换范围配置
+
+由 `.template` 文件定义：
+- `replace`：替换 `app/`、`run.py`、`requirements.txt`
+- `exclude`：替换时排除的目录/文件
+
+## 目录结构
+
+```
+planer_feishu_20260412/
+├── app/
+│   ├── core/            # Agent Core、Plan、Feishu
+│   └── routers/         # API 路由（含 feishu.py）
+├── readme.md
+├── requirements.txt
+├── run.py
+└── .template             # 模板元信息
+```
