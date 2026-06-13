@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # "dynamic": rebuild skills summary every LLM call (reflects latest skill state)
     SKILLS_INJECTION_MODE: str = "static"
 
+    # Plan Settings
+    # "static": inject plan context once per run() call (conversation start)
+    # "dynamic": rebuild plan context every LLM call (reflects latest task status)
+    PLAN_INJECTION_MODE: str = "dynamic"
+
     model_config = {
         "env_file": [".env", "../../.env"],
         "case_sensitive": True,

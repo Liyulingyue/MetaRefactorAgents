@@ -174,6 +174,11 @@ class PlanService:
         else:
             return None
 
+        if status in ("completed", "failed"):
+            all_done = all(t.status in ("completed", "failed") for t in plan.tasks)
+            if all_done:
+                plan.status = "completed" if status == "completed" else "failed"
+
         self.update_plan(plan)
         return task
 

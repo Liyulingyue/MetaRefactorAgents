@@ -82,29 +82,44 @@ class Agent:
         if on_update:
             on_update(history[-1])
 
-        # 获取当前所有活跃计划
-        service = get_plan_service()
-        plans = service.list_plans()
-        active_plans = [p for p in plans if p["status"] == "pending" or p["status"] == "running"]
-        
-        plan_context = ""
-        if active_plans:
-            plan_context = "\nACTIVE ENGINEERING PLANS:\n"
-            for p in active_plans:
-                plan_context += f"- Plan [{p['name']}] (ID: {p['id']}): Current Task Index: {p.get('current_task_index', 0)} / {len(p.get('tasks', []))}\n"
-            plan_context += "\nNOTE: If you are currently working on a plan, use 'execute_next_plan_task' to proceed."
+        plan_service = get_plan_service()
+        skills_context_static = "\n" + self.skills_loader.build_skills_summary()
 
-        skills_context = "\n" + self.skills_loader.build_skills_summary()
+        if settings.PLAN_INJECTION_MODE == "static":
+            active_plans = [p for p in plan_service.list_plans() if p["status"] in ("pending", "running")]
+            plan_context_static = ""
+            if active_plans:
+                plan_context_static = "\nACTIVE ENGINEERING PLANS:\n"
+                for p in active_plans:
+                    plan_context_static += f"- Plan [{p['name']}] (ID: {p['id']}): Current Task Index: {p.get('current_task_index', 0)} / {len(p.get('tasks', []))}\n"
+                plan_context_static += "\nNOTE: If you are currently working on a plan, use 'execute_next_plan_task' to proceed."
+        else:
+            plan_context_static = None
 
         while True:
             system_msg = self.system_prompt
+
             if settings.SKILLS_INJECTION_MODE == "dynamic":
                 skills_context = "\n" + self.skills_loader.build_skills_summary()
+            else:
+                skills_context = skills_context_static
             if skills_context:
                 system_msg += skills_context
-            if plan_context:
-                system_msg += plan_context
-                
+
+            if settings.PLAN_INJECTION_MODE == "dynamic":
+                active_plans = [p for p in plan_service.list_plans() if p["status"] in ("pending", "running")]
+                plan_context = ""
+                if active_plans:
+                    plan_context = "\nACTIVE ENGINEERING PLANS:\n"
+                    for p in active_plans:
+                        plan_context += f"- Plan [{p['name']}] (ID: {p['id']}): Current Task Index: {p.get('current_task_index', 0)} / {len(p.get('tasks', []))}\n"
+                    plan_context += "\nNOTE: If you are currently working on a plan, use 'execute_next_plan_task' to proceed."
+                if plan_context:
+                    system_msg += plan_context
+            else:
+                if plan_context_static:
+                    system_msg += plan_context_static
+
             messages = [{"role": "system", "content": system_msg}] + history
             
             openai_tools = [

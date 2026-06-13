@@ -50,14 +50,21 @@ Skill 通过**上下文注入**（system prompt）引入，无需独立 Tool。A
 ### 注入模式配置
 
 ```env
-SKILLS_INJECTION_MODE=static   # 默认：启动时计算一次，之后不变
-SKILLS_INJECTION_MODE=dynamic  # 每轮 LLM 调用重新扫描 skills/ 目录
+# Plan 注入（默认 dynamic）
+PLAN_INJECTION_MODE=dynamic  # 每轮 LLM 调用重新查询 plan 状态
+PLAN_INJECTION_MODE=static   # 对话开始时计算一次
+
+# Skill 注入（默认 static）
+SKILLS_INJECTION_MODE=static   # 启动时计算一次
+SKILLS_INJECTION_MODE=dynamic   # 每轮 LLM 调用重新扫描 skills/ 目录
 ```
 
 | 模式 | 优点 | 缺点 |
 |------|------|------|
-| `static` | token 开销稳定，无文件 IO | Agent 新增/修改 Skill 后需重启生效 |
-| `dynamic` | 实时反映最新 Skill 状态 | 每轮额外文件扫描开销 |
+| `static` | token 开销稳定，无文件 IO | Agent 新增/修改后需重启生效 |
+| `dynamic` | 实时反映最新状态 | 每轮额外文件扫描/查询开销 |
+
+**说明**：Plan 推荐 `dynamic`（任务状态在对话中频繁变化）；Skill 推荐 `static`（内容通常稳定）。
 
 ## 替换范围配置
 
