@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable
 from openai import OpenAI
 from .tools import TOOL_SCHEMAS, handle_tool_call, get_plan_service
+from .registry import get_tool_registry
 from .config import settings
 from .skills import SkillsLoader
 
@@ -22,6 +23,18 @@ class Agent:
         os.makedirs("logs", exist_ok=True)
 
         self.skills_loader = SkillsLoader(workspace_dir=".")
+
+        self._mcp_loaded = False
+        if getattr(settings, "MCP_ENABLED", True):
+            try:
+                from .mcp_client import load_mcp_tools
+                result = load_mcp_tools()
+                self._mcp_loaded = True
+                mcp_count = sum(len(v) for v in result.values())
+                if mcp_count > 0:
+                    print(f"MCP tools loaded: {mcp_count} from {len(result)} servers")
+            except Exception as e:
+                print(f"Warning: Failed to load MCP tools: {e}")
 
         self.system_prompt = (
             "You are a versatile and autonomous general-purpose agent (MRA).\n"
@@ -72,6 +85,18 @@ class Agent:
         with open(self.error_log_path, "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] {context}: {type(exc).__name__}: {exc}\n")
 
+    def _get_tool_definitions(self) -> list[dict]:
+        """Get all tool definitions: built-in TOOL_SCHEMAS + dynamic MCP tools from registry."""
+        if settings.MCP_INJECTION_MODE == "dynamic":
+            from .mcp_client import reload_mcp_tools as _reload
+            _reload()
+        registry = get_tool_registry()
+        mcp_defs = registry.get_definitions()
+        all_defs = {d["name"]: d for d in TOOL_SCHEMAS}
+        for d in mcp_defs:
+            all_defs[d["name"]] = d
+        return list(all_defs.values())
+
     def run(self, prompt: str, history: List[Dict] = None, on_update: Optional[Callable[[Dict], None]] = None):
         if history is None:
             history = []
@@ -121,7 +146,7 @@ class Agent:
                     system_msg += plan_context_static
 
             messages = [{"role": "system", "content": system_msg}] + history
-            
+
             openai_tools = [
                 {
                     "type": "function",
@@ -130,7 +155,7 @@ class Agent:
                         "description": t["description"],
                         "parameters": t["parameters"]
                     }
-                } for t in TOOL_SCHEMAS
+                } for t in self._get_tool_definitions()
             ]
 
             response = self.client.chat.completions.create(

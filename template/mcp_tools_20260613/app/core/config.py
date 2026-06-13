@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Workspace Settings
     WORKSPACE_ROOT: str = "./workspace"
-    ACTIVE_TEMPLATE: str = "planer_20260408"
+    ACTIVE_TEMPLATE: str = "mcp_tools_20260613"
 
     # Feishu Settings
     FEISHU_APP_ID: str = ""
@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # "static": inject plan context once per run() call (conversation start)
     # "dynamic": rebuild plan context every LLM call (reflects latest task status)
     PLAN_INJECTION_MODE: str = "dynamic"
+
+    # MCP Settings
+    # "static": load MCP tools once at startup, use reload_mcp_tools tool to manually reload
+    # "dynamic": re-load MCP tools on every LLM call (auto-refresh)
+    MCP_INJECTION_MODE: str = "static"
 
     model_config = {
         "env_file": [".env", "../../.env"],

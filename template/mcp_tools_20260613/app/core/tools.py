@@ -51,7 +51,8 @@ def _register_builtin_tools() -> None:
         name = schema["name"]
         if name in mapping:
             registry.register(_tool_schema_to_tool(schema, mapping[name]))
-
+        elif name == "reload_mcp_tools":
+            registry.register(_tool_schema_to_tool(schema, reload_mcp_tools))
 
 
 def register_tool(tool: Tool) -> None:
@@ -291,6 +292,22 @@ class AgentTools:
         except Exception as e:
             return f"Error executing next task: {str(e)}"
 
+
+def reload_mcp_tools() -> str:
+    """Hot-reload all MCP tools from .mcp.json config. Use after editing MCP server config."""
+    try:
+        from .mcp_client import reload_mcp_tools as _reload
+        result = _reload()
+        lines = []
+        for server, tools in result.items():
+            lines.append(f"  {server}: {len(tools)} tools reloaded")
+        if not lines:
+            return "No MCP servers loaded."
+        return "MCP tools reloaded:\n" + "\n".join(lines)
+    except Exception as e:
+        return f"Error reloading MCP tools: {str(e)}"
+
+
 TOOL_SCHEMAS = [
     {
         "name": "execute_bash",
@@ -492,6 +509,14 @@ TOOL_SCHEMAS = [
                 "plan_id": {"type": "string", "description": "Plan ID"}
             },
             "required": ["plan_id"]
+        }
+    },
+    {
+        "name": "reload_mcp_tools",
+        "description": "Hot-reload all MCP tools. Call this after editing .mcp.json to apply changes.",
+        "parameters": {
+            "type": "object",
+            "properties": {}
         }
     }
 ]

@@ -18,14 +18,23 @@ default → default_20260406 → planer_20260408 → planer_feishu_20260412
 |------|------|
 | `app/core/registry.py` | `Tool` 基类 + `ToolRegistry` 单例 |
 | `app/core/tools.py` | 内置工具注册 + `handle_tool_call` 委托 |
+| `app/core/mcp_client.py` | MCP 客户端（HTTP + stdio） |
 
 注册表接口：
 - `get_tool_registry()` — 获取全局单例
 - `register_tool(tool)` — 运行时注册新工具
 - `unregister_tool(name)` — 运行时注销工具
 
-### MCP 集成（TODO）
+### MCP 集成 ✅
 支持连接 MCP 服务器，将外部工具接入 Agent 工具集。
+
+| 特性 | 说明 |
+|------|------|
+| 传输方式 | HTTP/SSE（远程）、stdio（本地 npx） |
+| 工具前缀 | `mcp_{server}_{tool}` |
+| 配置 | `.mcp.json`（参考 `.mcp.json.example`） |
+| 热重载 | `reload_mcp_tools` 工具 |
+| 开关 | `MCP_ENABLED=true/false` |
 
 ## 继承特性
 
@@ -41,15 +50,16 @@ default → default_20260406 → planer_20260408 → planer_feishu_20260412
 ### Skill 系统（来自 skill_system）
 内置 Skill：patent-writer · code-reviewer
 
-## 完整工具集（16 个）
+## 完整工具集（17 个）
 
-基础工具（6）+ Plan 工具（5）+ 原子化编辑工具（5）
+基础工具（6）+ Plan 工具（5）+ 原子化编辑工具（5）+ `reload_mcp_tools`（1）
 
 ## 注入模式配置
 
 ```env
 PLAN_INJECTION_MODE=dynamic   # 每轮 LLM 调用重新查询 plan 状态
 SKILLS_INJECTION_MODE=static  # 启动时计算一次
+MCP_INJECTION_MODE=static    # static：启动加载一次，dynamic：每轮 LLM 调用自动刷新
 ```
 
 ## 替换范围配置

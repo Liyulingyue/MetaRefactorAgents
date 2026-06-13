@@ -19,7 +19,7 @@
     "builtin_skills_dir": "skills"
   },
   "mcp": {
-    "new_files": ["app/core/mcp_client.py"],
-    "config_keys": ["MCP_SERVERS"]
+    "new_files": ["app/core/mcp_client.py", ".mcp.json.example"],
+    "config_keys": ["MCP_ENABLED"]
   }
 }
