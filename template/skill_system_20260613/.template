@@ -2,7 +2,7 @@
   "id": "20260613100000",
   "name": "skill_system_20260613",
   "replace": ["app", "run.py", "requirements.txt"],
-  "exclude": ["logs", ".backup", "readme.md"],
+  "exclude": ["logs", ".backup", "readme.md", ".env.example"],
   "lineage": {
     "version": "1.0.0",
     "parent": "20260412140000",
