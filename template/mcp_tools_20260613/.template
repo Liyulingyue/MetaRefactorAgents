@@ -1,0 +1,25 @@
+{
+  "id": "20260613110000",
+  "name": "mcp_tools_20260613",
+  "replace": ["app", "run.py", "requirements.txt"],
+  "exclude": ["logs", ".backup", "readme.md"],
+  "lineage": {
+    "version": "1.0.0",
+    "parent": "20260613100000",
+    "created_at": "2026-06-13",
+    "note": "基于 skill_system_20260613，新增 MCP 集成与 ToolRegistry"
+  },
+  "feishu": {
+    "new_files": ["app/core/feishu.py", "app/routers/feishu.py"],
+    "modified_files": ["app/main.py", "app/core/config.py"],
+    "config_keys": ["FEISHU_APP_ID", "FEISHU_APP_SECRET"]
+  },
+  "skills": {
+    "new_files": ["app/core/skills.py"],
+    "builtin_skills_dir": "skills"
+  },
+  "mcp": {
+    "new_files": ["app/core/mcp_client.py"],
+    "config_keys": ["MCP_SERVERS"]
+  }
+}
