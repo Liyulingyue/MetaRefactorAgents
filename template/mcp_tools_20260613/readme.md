@@ -11,11 +11,21 @@ default → default_20260406 → planer_20260408 → planer_feishu_20260412
 
 ## 核心新增功能
 
+### ToolRegistry 可插拔架构 ✅
+将工具从 if-elif 链迁移到注册表模式，支持运行时注册/注销工具。
+
+| 文件 | 说明 |
+|------|------|
+| `app/core/registry.py` | `Tool` 基类 + `ToolRegistry` 单例 |
+| `app/core/tools.py` | 内置工具注册 + `handle_tool_call` 委托 |
+
+注册表接口：
+- `get_tool_registry()` — 获取全局单例
+- `register_tool(tool)` — 运行时注册新工具
+- `unregister_tool(name)` — 运行时注销工具
+
 ### MCP 集成（TODO）
 支持连接 MCP 服务器，将外部工具接入 Agent 工具集。
-
-### ToolRegistry 可插拔架构（TODO）
-将工具从 if-elif 链迁移到注册表模式，支持运行时注册/注销工具。
 
 ## 继承特性
 
@@ -52,7 +62,14 @@ SKILLS_INJECTION_MODE=static  # 启动时计算一次
 
 ```
 mcp_tools_20260613/
-├── app/                  # FastAPI 应用（含 Agent Core、Plan、Feishu、MCP）
+├── app/
+│   └── core/
+│       ├── registry.py    # ToolRegistry + Tool 基类
+│       ├── tools.py      # 内置工具（已迁移到 registry）
+│       ├── plan.py       # Plan Service
+│       ├── skills.py     # Skills Loader
+│       ├── feishu.py     # Feishu Client
+│       └── config.py     # 配置
 ├── skills/               # 内置 Skill（SKILL.md 格式）
 ├── readme.md
 ├── requirements.txt

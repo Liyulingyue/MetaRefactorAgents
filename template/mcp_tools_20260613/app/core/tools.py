@@ -4,6 +4,7 @@ import requests
 import json
 from typing import Dict, Any, List, Optional
 from .plan import PlanService
+from .registry import Tool, get_tool_registry
 
 _plan_service: Optional[PlanService] = None
 
@@ -12,6 +13,54 @@ def get_plan_service() -> PlanService:
     if _plan_service is None:
         _plan_service = PlanService()
     return _plan_service
+
+
+def _tool_schema_to_tool(schema: Dict[str, Any], impl_fn) -> Tool:
+    class WrappedTool(Tool):
+        name = schema["name"]
+        description = schema["description"]
+        parameters = schema["parameters"]
+
+        def execute(self, **kwargs) -> str:
+            return impl_fn(**kwargs)
+
+    return WrappedTool()
+
+
+def _register_builtin_tools() -> None:
+    registry = get_tool_registry()
+    mapping = {
+        "execute_bash": AgentTools.execute_bash,
+        "write_file": AgentTools.write_file,
+        "read_file": AgentTools.read_file,
+        "replace_string_in_file": AgentTools.replace_string_in_file,
+        "append_to_file": AgentTools.append_to_file,
+        "read_file_range": AgentTools.read_file_range,
+        "tail_file": AgentTools.tail_file,
+        "grep_file": AgentTools.grep_file,
+        "call_peer_agent": AgentTools.call_peer_agent,
+        "list_peers": AgentTools.list_peers,
+        "publish_to_shared": AgentTools.publish_to_shared,
+        "create_plan": AgentTools.create_plan,
+        "add_task_to_plan": AgentTools.add_task_to_plan,
+        "get_plan_status": AgentTools.get_plan_status,
+        "update_task_progress": AgentTools.update_task_progress,
+        "execute_next_plan_task": AgentTools.execute_next_plan_task,
+    }
+    for schema in TOOL_SCHEMAS:
+        name = schema["name"]
+        if name in mapping:
+            registry.register(_tool_schema_to_tool(schema, mapping[name]))
+
+
+
+def register_tool(tool: Tool) -> None:
+    get_tool_registry().register(tool)
+
+
+def unregister_tool(name: str) -> None:
+    get_tool_registry().unregister(name)
+
 
 class AgentTools:
     @staticmethod
@@ -447,37 +496,8 @@ TOOL_SCHEMAS = [
     }
 ]
 
+_register_builtin_tools()
+
+
 def handle_tool_call(name: str, args: Dict[str, Any]) -> str:
-    if name == "execute_bash":
-        return AgentTools.execute_bash(args["command"])
-    elif name == "write_file":
-        return AgentTools.write_file(args["file_path"], args["content"])
-    elif name == "read_file":
-        return AgentTools.read_file(args["file_path"])
-    elif name == "call_peer_agent":
-        return AgentTools.call_peer_agent(args["agent_id"], args["prompt"])
-    elif name == "list_peers":
-        return AgentTools.list_peers()
-    elif name == "publish_to_shared":
-        return AgentTools.publish_to_shared(args["file_path"])
-    elif name == "replace_string_in_file":
-        return AgentTools.replace_string_in_file(args["file_path"], args["old_string"], args["new_string"])
-    elif name == "append_to_file":
-        return AgentTools.append_to_file(args["file_path"], args["content"])
-    elif name == "read_file_range":
-        return AgentTools.read_file_range(args["file_path"], args["start_line"], args["end_line"])
-    elif name == "tail_file":
-        return AgentTools.tail_file(args["file_path"], args.get("num_lines", 50))
-    elif name == "grep_file":
-        return AgentTools.grep_file(args["file_path"], args["pattern"])
-    elif name == "create_plan":
-        return AgentTools.create_plan(args["name"], args.get("description", ""), args.get("tasks", []))
-    elif name == "add_task_to_plan":
-        return AgentTools.add_task_to_plan(args["plan_id"], args["name"], args["action"], args.get("params", {}), args.get("depends_on", []))
-    elif name == "get_plan_status":
-        return AgentTools.get_plan_status(args["plan_id"])
-    elif name == "update_task_progress":
-        return AgentTools.update_task_progress(args["plan_id"], args["task_id"], args["status"], args.get("result", {}))
-    elif name == "execute_next_plan_task":
-        return AgentTools.execute_next_plan_task(args["plan_id"])
-    return f"Unknown tool: {name}"
+    return get_tool_registry().execute(name, args)
