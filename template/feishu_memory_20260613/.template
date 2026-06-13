@@ -1,0 +1,34 @@
+{
+  "id": "20260613130000",
+  "name": "feishu_memory_20260613",
+  "replace": ["app", "run.py", "requirements.txt"],
+  "exclude": ["logs", ".backup", "readme.md", ".env.example"],
+  "lineage": {
+    "version": "1.0.0",
+    "parent": "20260613120000",
+    "created_at": "2026-06-13",
+    "note": "基于 conversation_20260613，新增飞书多轮对话与长期记忆策略"
+  },
+  "feishu": {
+    "new_files": ["app/core/feishu.py", "app/routers/feishu.py"],
+    "modified_files": ["app/main.py", "app/core/config.py"],
+    "config_keys": ["FEISHU_APP_ID", "FEISHU_APP_SECRET"],
+    "todo": ["多轮对话上下文管理", "按 chat_id 维护 session 历史"]
+  },
+  "skills": {
+    "new_files": ["app/core/skills.py"],
+    "builtin_skills_dir": "skills"
+  },
+  "mcp": {
+    "new_files": ["app/core/mcp_client.py", ".mcp.json.example"],
+    "config_keys": ["MCP_ENABLED"]
+  },
+  "conversation": {
+    "new_files": ["app/core/autocompact.py"],
+    "config_keys": ["HISTORY_SUMMARY_THRESHOLD"]
+  },
+  "memory": {
+    "new_files": [],
+    "todo": ["长期记忆模块设计", "跨会话上下文持久化"]
+  }
+}
