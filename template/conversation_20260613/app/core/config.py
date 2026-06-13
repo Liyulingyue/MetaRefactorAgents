@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # "dynamic": re-load MCP tools on every LLM call (auto-refresh)
     MCP_INJECTION_MODE: str = "static"
 
+    # Conversation Compression Settings
+    # Token threshold to trigger automatic history compression (0 to disable)
+    # Recommended: 3000-8000 tokens for gpt-4o-mini context budget
+    HISTORY_SUMMARY_THRESHOLD: int = 25000
+
     model_config = {
         "env_file": [".env", "../../.env"],
         "case_sensitive": True,

@@ -7,6 +7,7 @@ from .tools import TOOL_SCHEMAS, handle_tool_call, get_plan_service
 from .registry import get_tool_registry
 from .config import settings
 from .skills import SkillsLoader
+from .autocompact import ConversationCompactor
 
 MAX_THOUGHTS_SIZE = 100 * 1024
 
@@ -35,6 +36,8 @@ class Agent:
                     print(f"MCP tools loaded: {mcp_count} from {len(result)} servers")
             except Exception as e:
                 print(f"Warning: Failed to load MCP tools: {e}")
+
+        self.compactor = ConversationCompactor(threshold=settings.HISTORY_SUMMARY_THRESHOLD)
 
         self.system_prompt = (
             "You are a versatile and autonomous general-purpose agent (MRA).\n"
@@ -144,6 +147,9 @@ class Agent:
             else:
                 if plan_context_static:
                     system_msg += plan_context_static
+
+            if self.compactor.threshold > 0:
+                history = self.compactor.check_and_compact(history, self.client, self.model)
 
             messages = [{"role": "system", "content": system_msg}] + history
 
