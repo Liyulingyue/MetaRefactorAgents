@@ -1,0 +1,12 @@
+{
+  "id": "develop",
+  "name": "develop",
+  "replace": ["app", "run.py", "requirements.txt"],
+  "exclude": ["logs", ".backup", "readme.md", ".env.example", "sessions", "__pycache__"],
+  "lineage": {
+    "version": "1.0.0",
+    "parent": "feishu_memory_20260613",
+    "created_at": "2026-06-14",
+    "note": "开发分支，基于 feishu_memory_20260613"
+  }
+}
