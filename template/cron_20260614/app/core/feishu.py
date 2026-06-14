@@ -144,6 +144,8 @@ class ChatWorker:
 
     def _worker_loop(self, chat_id: str):
         from app.core.session import get_session_manager
+        from app.core.session_context import SessionContext
+
         sm = get_session_manager()
         fc = self._feishu_client or feishu_client
         history = sm.get_history(chat_id)
@@ -171,7 +173,8 @@ class ChatWorker:
                 def on_compact(summary: str):
                     sm.append_summary(chat_id, summary)
 
-                resp = Agent().run(text, history=history, on_compact=on_compact)
+                with SessionContext(chat_id):
+                    resp = Agent().run(text, history=history, on_compact=on_compact)
                 if resp:
                     sm.append_assistant(chat_id, resp)
                     fc.send_text(chat_id, "chat_id", resp)

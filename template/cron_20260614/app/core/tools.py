@@ -303,13 +303,20 @@ class AgentTools:
             return f"Error executing next task: {str(e)}"
 
     @staticmethod
-    def create_cron(name: str, kind: str, message: str, session_key: str, every_ms: Optional[int] = None, at_ms: Optional[int] = None, expr: Optional[str] = None, tz: Optional[str] = None) -> str:
+    def create_cron(name: str, kind: str, message: str, session_key: Optional[str] = None, every_ms: Optional[int] = None, at_ms: Optional[int] = None, expr: Optional[str] = None, tz: Optional[str] = None) -> str:
         """创建一个新的定时任务"""
         try:
             from app.core.cron_service import CronService
             from app.core.cron_types import CronSchedule
             from pathlib import Path
             from app.core.config import settings
+            from app.core.session_context import get_current_session
+
+            if session_key is None:
+                session_key = get_current_session()
+
+            if session_key is None:
+                return "Error: No session_key provided and no active session context. Please specify session_key explicitly."
 
             service = CronService(Path(settings.CRON_STORAGE_PATH) / "jobs.json")
             schedule = CronSchedule(kind=kind, every_ms=every_ms, at_ms=at_ms, expr=expr, tz=tz)
@@ -405,7 +412,7 @@ def reload_mcp_tools() -> str:
 TOOL_SCHEMAS = [
     {
         "name": "create_cron",
-        "description": "Create a new scheduled cron job that runs an Agent and sends result to Feishu.",
+        "description": "Create a new scheduled cron job that runs an Agent and sends result to Feishu. If session_key is not provided, it will use the current chat session.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -416,9 +423,9 @@ TOOL_SCHEMAS = [
                 "expr": {"type": "string", "description": "Cron expression like '0 9 * * *' (for kind='cron')"},
                 "tz": {"type": "string", "description": "Timezone like 'Asia/Shanghai' (for kind='cron')"},
                 "message": {"type": "string", "description": "Prompt for the Agent to execute (will be sent as Agent input)"},
-                "session_key": {"type": "string", "description": "Feishu chat_id to send the Agent's result to"},
+                "session_key": {"type": "string", "description": "Feishu chat_id to send the Agent's result to. If not provided, uses current session."},
             },
-            "required": ["name", "kind", "message", "session_key"]
+            "required": ["name", "kind", "message"]
         }
     },
     {

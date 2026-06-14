@@ -60,15 +60,51 @@ class CronJob:
 
     @classmethod
     def from_dict(cls, kwargs: dict) -> "CronJob":
-        state_kwargs = dict(kwargs.get("state", {}))
-        state_kwargs["run_history"] = [
+        raw_state = kwargs.get("state", {})
+
+        run_history = raw_state.get("runHistory", [])
+        run_history = [
             record if isinstance(record, CronRunRecord) else CronRunRecord(**record)
-            for record in state_kwargs.get("run_history", [])
+            for record in run_history
         ]
-        kwargs["schedule"] = CronSchedule(**kwargs.get("schedule", {"kind": "every"}))
-        kwargs["payload"] = CronPayload(**kwargs.get("payload", {}))
-        kwargs["state"] = CronJobState(**state_kwargs)
-        return cls(**kwargs)
+        state_kwargs = {
+            "next_run_at_ms": raw_state.get("nextRunAtMs"),
+            "last_run_at_ms": raw_state.get("lastRunAtMs"),
+            "last_status": raw_state.get("lastStatus"),
+            "last_error": raw_state.get("lastError"),
+            "run_history": run_history,
+        }
+
+        schedule_data = kwargs.get("schedule", {"kind": "every"})
+        schedule_data = {
+            "kind": schedule_data.get("kind"),
+            "at_ms": schedule_data.get("atMs"),
+            "every_ms": schedule_data.get("everyMs"),
+            "expr": schedule_data.get("expr"),
+            "tz": schedule_data.get("tz"),
+        }
+
+        payload_data = kwargs.get("payload", {})
+        payload_data = {
+            "kind": payload_data.get("kind", "agent_turn"),
+            "message": payload_data.get("message", ""),
+            "session_key": payload_data.get("sessionKey"),
+            "origin_channel": payload_data.get("originChannel"),
+            "origin_chat_id": payload_data.get("originChatId"),
+            "origin_metadata": payload_data.get("originMetadata", {}),
+        }
+
+        return cls(
+            id=kwargs.get("id", ""),
+            name=kwargs.get("name", ""),
+            enabled=kwargs.get("enabled", True),
+            schedule=CronSchedule(**schedule_data),
+            payload=CronPayload(**payload_data),
+            state=CronJobState(**state_kwargs),
+            created_at_ms=kwargs.get("createdAtMs", 0),
+            updated_at_ms=kwargs.get("updatedAtMs", 0),
+            delete_after_run=kwargs.get("deleteAfterRun", False),
+        )
 
     def to_dict(self) -> dict:
         return {
