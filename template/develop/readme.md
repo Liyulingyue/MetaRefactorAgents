@@ -1,63 +1,82 @@
-# Conversation 20260613 Template
+# Develop Template
 
-基于 `mcp_tools_20260613` 增强，新增**对话上下文压缩与总结策略**。
+开发分支，基于 `feishu_memory_20260613`。
 
 ## 模板血缘
 
 ```
 default → default_20260406 → planer_20260408 → planer_feishu_20260412
-→ skill_system_20260613 → mcp_tools_20260613 → conversation_20260613  ← 当前
+→ skill_system_20260613 → mcp_tools_20260613 → conversation_20260613
+→ feishu_memory_20260613 → develop  ← 当前
 ```
 
-## 核心新增功能
+## 核心功能
 
-### 对话上下文压缩与总结策略（TODO）
+### 飞书多轮对话
 
-解决长对话上下文无限膨胀导致的 token 爆炸和 context 溢出问题。
+按 `chat_id` 维护独立会话上下文，支持消息队列与命令：
 
-## 继承特性
+- `/new` - 开启新对话，清空上下文
+- `/stop` - 停止当前处理任务
 
-### MCP 集成（来自 mcp_tools）
-HTTP/SSE + stdio 双传输，支持热插拔工具。
+### 对话上下文压缩
 
-### ToolRegistry 可插拔架构（来自 mcp_tools）
-内置工具注册到全局注册表，支持运行时注册/注销。
+基于 token 数量自动压缩，当 history 超过阈值时触发压缩，将早期消息摘要化。
 
-### Plan 任务计划（来自 planer）
-`create_plan` · `add_task_to_plan` · `get_plan_status` · `update_task_progress` · `execute_next_plan_task`
+### 长期记忆
 
-### 飞书机器人（来自 planer_feishu）
-消息接入与自动回复。
+- `SYSTEM.md` - Agent 身份定义，支持模型自修改
+- `MEMORY.md` - 全局长期记忆，动态注入 system prompt
 
-### 原子化编辑工具（来自 default_20260406）
-`replace_string_in_file` · `append_to_file` · `read_file_range` · `tail_file` · `grep_file`
+### 两层记忆架构
 
-### Skill 系统（来自 skill_system）
-内置 Skill：patent-writer · code-reviewer
+- **会话层**：sessions/*.ndjson，按 chat_id 存储，包含压缩摘要
+- **长期层**：MEMORY.md，Agent 重要事实持久化
 
-## 注入模式配置
+## 配置项
 
 ```env
-PLAN_INJECTION_MODE=dynamic
-SKILLS_INJECTION_MODE=static
-MCP_INJECTION_MODE=static
+# 飞书
+FEISHU_APP_ID=xxx
+FEISHU_APP_SECRET=xxx
+
+# 会话
+SESSION_STORAGE_PATH=./sessions
+SESSION_FILE_MAX_SIZE=102400  # 100KB 自动归档
+
+# 上下文压缩
+HISTORY_SUMMARY_THRESHOLD=25000  # token 阈值
+
+# 长期记忆
+MEMORY_FILE_PATH=MEMORY.md
+MEMORY_INJECTION_MODE=dynamic
+
+# 系统提示
+SYSTEM_FILE_PATH=SYSTEM.md
+SYSTEM_INJECTION_MODE=dynamic
 ```
 
 ## 目录结构
 
 ```
-conversation_20260613/
+develop/
 ├── app/
 │   └── core/
-│       ├── agent.py        # 对话压缩逻辑
-│       ├── autocompact.py # 上下文压缩模块（TODO）
-│       ├── registry.py
-│       ├── tools.py
-│       ├── plan.py
-│       ├── skills.py
+│       ├── agent.py        # Agent 核心，含 system/memory 注入
+│       ├── autocompact.py  # 对话压缩模块
+│       ├── config.py       # 配置管理
+│       ├── feishu.py       # 飞书 WS + ChatWorker
+│       ├── memory.py       # 长期记忆加载
 │       ├── mcp_client.py
-│       └── config.py
-├── skills/
+│       ├── plan.py
+│       ├── registry.py
+│       ├── session.py      # 会话管理，NDJSON 存储
+│       ├── skills.py
+│       └── tools.py
+├── skills/                 # 内置 Skill
+├── sessions/               # 会话文件存储（运行后生成）
+├── SYSTEM.md              # Agent 身份
+├── MEMORY.md              # 长期记忆
 ├── readme.md
 ├── requirements.txt
 ├── run.py
