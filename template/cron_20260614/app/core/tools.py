@@ -47,6 +47,11 @@ def _register_builtin_tools() -> None:
         "get_plan_status": AgentTools.get_plan_status,
         "update_task_progress": AgentTools.update_task_progress,
         "execute_next_plan_task": AgentTools.execute_next_plan_task,
+        "create_cron": AgentTools.create_cron,
+        "list_crons": AgentTools.list_crons,
+        "delete_cron": AgentTools.delete_cron,
+        "enable_cron": AgentTools.enable_cron,
+        "disable_cron": AgentTools.disable_cron,
     }
     for schema in TOOL_SCHEMAS:
         name = schema["name"]
@@ -297,6 +302,90 @@ class AgentTools:
         except Exception as e:
             return f"Error executing next task: {str(e)}"
 
+    @staticmethod
+    def create_cron(name: str, kind: str, message: str, session_key: str, every_ms: Optional[int] = None, at_ms: Optional[int] = None, expr: Optional[str] = None, tz: Optional[str] = None) -> str:
+        """创建一个新的定时任务"""
+        try:
+            from app.core.cron_service import CronService
+            from app.core.cron_types import CronSchedule
+            from pathlib import Path
+            from app.core.config import settings
+
+            service = CronService(Path(settings.CRON_STORAGE_PATH) / "jobs.json")
+            schedule = CronSchedule(kind=kind, every_ms=every_ms, at_ms=at_ms, expr=expr, tz=tz)
+            job = service.add_job(name=name, schedule=schedule, message=message, session_key=session_key)
+            return f"Cron job created: ID={job.id}, Name={job.name}"
+        except Exception as e:
+            return f"Error creating cron: {str(e)}"
+
+    @staticmethod
+    def list_crons(include_disabled: bool = False) -> str:
+        """列出所有定时任务"""
+        try:
+            from app.core.cron_service import CronService
+            from pathlib import Path
+            from app.core.config import settings
+
+            service = CronService(Path(settings.CRON_STORAGE_PATH) / "jobs.json")
+            jobs = service.list_jobs(include_disabled=include_disabled)
+            if not jobs:
+                return "No cron jobs found."
+            result = [f"- {j.name} (ID: {j.id}, enabled: {j.enabled}, next_run: {j.state.next_run_at_ms})" for j in jobs]
+            return "Cron jobs:\n" + "\n".join(result)
+        except Exception as e:
+            return f"Error listing crons: {str(e)}"
+
+    @staticmethod
+    def delete_cron(job_id: str) -> str:
+        """删除指定的定时任务"""
+        try:
+            from app.core.cron_service import CronService
+            from pathlib import Path
+            from app.core.config import settings
+
+            service = CronService(Path(settings.CRON_STORAGE_PATH) / "jobs.json")
+            result = service.remove_job(job_id)
+            if result == "removed":
+                return f"Cron job {job_id} deleted."
+            elif result == "protected":
+                return f"Cannot delete protected system job {job_id}."
+            else:
+                return f"Cron job {job_id} not found."
+        except Exception as e:
+            return f"Error deleting cron: {str(e)}"
+
+    @staticmethod
+    def enable_cron(job_id: str) -> str:
+        """启用指定的定时任务"""
+        try:
+            from app.core.cron_service import CronService
+            from pathlib import Path
+            from app.core.config import settings
+
+            service = CronService(Path(settings.CRON_STORAGE_PATH) / "jobs.json")
+            job = service.enable_job(job_id, enabled=True)
+            if job:
+                return f"Cron job {job_id} enabled."
+            return f"Cron job {job_id} not found."
+        except Exception as e:
+            return f"Error enabling cron: {str(e)}"
+
+    @staticmethod
+    def disable_cron(job_id: str) -> str:
+        """禁用指定的定时任务"""
+        try:
+            from app.core.cron_service import CronService
+            from pathlib import Path
+            from app.core.config import settings
+
+            service = CronService(Path(settings.CRON_STORAGE_PATH) / "jobs.json")
+            job = service.enable_job(job_id, enabled=False)
+            if job:
+                return f"Cron job {job_id} disabled."
+            return f"Cron job {job_id} not found."
+        except Exception as e:
+            return f"Error disabling cron: {str(e)}"
+
 
 def reload_mcp_tools() -> str:
     """Hot-reload all MCP tools from .mcp.json config. Use after editing MCP server config."""
@@ -314,6 +403,67 @@ def reload_mcp_tools() -> str:
 
 
 TOOL_SCHEMAS = [
+    {
+        "name": "create_cron",
+        "description": "Create a new scheduled cron job that runs an Agent and sends result to Feishu.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name for the cron job"},
+                "kind": {"type": "string", "enum": ["every", "at", "cron"], "description": "Schedule type: 'every' for interval, 'at' for one-time, 'cron' for cron expression"},
+                "every_ms": {"type": "integer", "description": "Interval in milliseconds (for kind='every')"},
+                "at_ms": {"type": "integer", "description": "Timestamp in ms for one-time execution (for kind='at')"},
+                "expr": {"type": "string", "description": "Cron expression like '0 9 * * *' (for kind='cron')"},
+                "tz": {"type": "string", "description": "Timezone like 'Asia/Shanghai' (for kind='cron')"},
+                "message": {"type": "string", "description": "Prompt for the Agent to execute (will be sent as Agent input)"},
+                "session_key": {"type": "string", "description": "Feishu chat_id to send the Agent's result to"},
+            },
+            "required": ["name", "kind", "message", "session_key"]
+        }
+    },
+    {
+        "name": "list_crons",
+        "description": "List all scheduled cron jobs.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "include_disabled": {"type": "boolean", "description": "Include disabled jobs", "default": False}
+            }
+        }
+    },
+    {
+        "name": "delete_cron",
+        "description": "Delete a cron job by ID.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string", "description": "The cron job ID to delete"}
+            },
+            "required": ["job_id"]
+        }
+    },
+    {
+        "name": "enable_cron",
+        "description": "Enable a disabled cron job.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string", "description": "The cron job ID to enable"}
+            },
+            "required": ["job_id"]
+        }
+    },
+    {
+        "name": "disable_cron",
+        "description": "Disable an active cron job.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string", "description": "The cron job ID to disable"}
+            },
+            "required": ["job_id"]
+        }
+    },
     {
         "name": "execute_bash",
         "description": "Execute a bash command in the terminal and return its output.",

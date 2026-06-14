@@ -8,3 +8,6 @@ requests
 python-multipart
 lark-oapi
 PyYAML
+croniter
+filelock
+loguru

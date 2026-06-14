@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     # Session storage path (NDJSON files per chat_id)
     SESSION_STORAGE_PATH: str = "./sessions"
 
+    # Cron Settings
+    CRON_STORAGE_PATH: str = "./cron"
+    CRON_ENABLED: bool = True
+
     # Long-term Memory Settings
     # Path relative to workspace for MEMORY.md file
     MEMORY_FILE_PATH: str = "MEMORY.md"
