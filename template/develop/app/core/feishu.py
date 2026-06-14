@@ -144,11 +144,15 @@ class ChatWorker:
             try:
                 from app.core.agent import Agent
 
+                sm.append_message(chat_id, "user", text)
+                history = sm.get_history(chat_id)
+
                 def on_compact(summary: str):
                     sm.append_summary(chat_id, summary)
 
                 resp = Agent().run(text, history=history, on_compact=on_compact)
                 if resp:
+                    sm.append_assistant(chat_id, resp)
                     fc.send_text(chat_id, "chat_id", resp)
             except Exception as ex:
                 fc.send_text(chat_id, "chat_id", f"❌ 处理出错: {ex}")
