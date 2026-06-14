@@ -105,4 +105,10 @@ class ConversationCompactor:
             return messages
 
         self.last_summary = summary_text
-        return build_summary_messages(messages, summary_text)
+        summary_msg = {
+            "role": "user",
+            "content": f"Previous conversation summary:\n{summary_text}"
+        }
+        messages.clear()
+        messages.extend([summary_msg])
+        return messages

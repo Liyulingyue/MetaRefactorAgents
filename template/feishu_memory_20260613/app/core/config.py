@@ -43,8 +43,25 @@ class Settings(BaseSettings):
 
     # Conversation Compression Settings
     # Token threshold to trigger automatic history compression (0 to disable)
-    # Recommended: 3000-8000 tokens for gpt-4o-mini context budget
+    # Recommended: 25000 tokens for MiniMax 32K context
     HISTORY_SUMMARY_THRESHOLD: int = 25000
+
+    # Session storage path (NDJSON files per chat_id)
+    SESSION_STORAGE_PATH: str = "./sessions"
+
+    # Long-term Memory Settings
+    # Path relative to workspace for MEMORY.md file
+    MEMORY_FILE_PATH: str = "MEMORY.md"
+    # "static": load memory once at startup
+    # "dynamic": re-read memory on every LLM call
+    MEMORY_INJECTION_MODE: str = "dynamic"
+
+    # System Prompt Settings
+    # Path relative to workspace for SYSTEM.md file (agent's own definition)
+    SYSTEM_FILE_PATH: str = "SYSTEM.md"
+    # "static": load system prompt once at startup
+    # "dynamic": re-read system prompt on every LLM call (for self-modification)
+    SYSTEM_INJECTION_MODE: str = "dynamic"
 
     model_config = {
         "env_file": [".env", "../../.env"],

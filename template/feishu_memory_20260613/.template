@@ -2,7 +2,7 @@
   "id": "20260613130000",
   "name": "feishu_memory_20260613",
   "replace": ["app", "run.py", "requirements.txt"],
-  "exclude": ["logs", ".backup", "readme.md", ".env.example"],
+  "exclude": ["logs", ".backup", "readme.md", ".env.example", "sessions"],
   "lineage": {
     "version": "1.0.0",
     "parent": "20260613120000",
@@ -10,9 +10,9 @@
     "note": "基于 conversation_20260613，新增飞书多轮对话与长期记忆策略"
   },
   "feishu": {
-    "new_files": ["app/core/feishu.py", "app/routers/feishu.py"],
+    "new_files": ["app/core/feishu.py", "app/routers/feishu.py", "app/core/session.py"],
     "modified_files": ["app/main.py", "app/core/config.py"],
-    "config_keys": ["FEISHU_APP_ID", "FEISHU_APP_SECRET"],
+    "config_keys": ["FEISHU_APP_ID", "FEISHU_APP_SECRET", "SESSION_STORAGE_PATH"],
     "todo": ["多轮对话上下文管理", "按 chat_id 维护 session 历史"]
   },
   "skills": {
@@ -25,10 +25,17 @@
   },
   "conversation": {
     "new_files": ["app/core/autocompact.py"],
-    "config_keys": ["HISTORY_SUMMARY_THRESHOLD"]
+    "config_keys": ["HISTORY_SUMMARY_THRESHOLD"],
+    "note": "token-based compression, in-place history modification"
+  },
+  "system": {
+    "new_files": [],
+    "config_keys": ["SYSTEM_FILE_PATH", "SYSTEM_INJECTION_MODE"],
+    "note": "SYSTEM.md defines agent identity, model can self-modify"
   },
   "memory": {
-    "new_files": [],
-    "todo": ["长期记忆模块设计", "跨会话上下文持久化"]
+    "new_files": ["app/core/memory.py"],
+    "config_keys": ["MEMORY_FILE_PATH", "MEMORY_INJECTION_MODE"],
+    "note": "MEMORY.md injected into system prompt, append via append_to_file tool"
   }
 }

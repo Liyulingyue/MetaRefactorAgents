@@ -7,6 +7,7 @@ from .tools import TOOL_SCHEMAS, handle_tool_call, get_plan_service
 from .registry import get_tool_registry
 from .config import settings
 from .skills import SkillsLoader
+from .memory import MemoryLoader
 from .autocompact import ConversationCompactor
 
 MAX_THOUGHTS_SIZE = 100 * 1024
@@ -24,6 +25,7 @@ class Agent:
         os.makedirs("logs", exist_ok=True)
 
         self.skills_loader = SkillsLoader(workspace_dir=".")
+        self.memory_loader = MemoryLoader(workspace_dir=".")
 
         self._mcp_loaded = False
         if getattr(settings, "MCP_ENABLED", True):
@@ -39,7 +41,17 @@ class Agent:
 
         self.compactor = ConversationCompactor(threshold=settings.HISTORY_SUMMARY_THRESHOLD)
 
-        self.system_prompt = (
+        self.system_prompt = self._load_system_prompt()
+
+    def _load_system_prompt(self) -> str:
+        path = settings.SYSTEM_FILE_PATH
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return f.read()
+            except Exception:
+                pass
+        return (
             "You are a versatile and autonomous general-purpose agent (MRA).\n"
             "MRA (MetaRefactorAgents) is a system where agents collaborate to refactor code across the fleet.\n"
             "\n"
@@ -100,7 +112,7 @@ class Agent:
             all_defs[d["name"]] = d
         return list(all_defs.values())
 
-    def run(self, prompt: str, history: List[Dict] = None, on_update: Optional[Callable[[Dict], None]] = None):
+    def run(self, prompt: str, history: List[Dict] = None, on_update: Optional[Callable[[Dict], None]] = None, on_compact: Optional[Callable[[str], None]] = None):
         if history is None:
             history = []
         
@@ -112,6 +124,7 @@ class Agent:
 
         plan_service = get_plan_service()
         skills_context_static = "\n" + self.skills_loader.build_skills_summary()
+        memory_context_static = self.memory_loader.build_memory_summary()
 
         if settings.PLAN_INJECTION_MODE == "static":
             active_plans = [p for p in plan_service.list_plans() if p["status"] in ("pending", "running")]
@@ -125,7 +138,10 @@ class Agent:
             plan_context_static = None
 
         while True:
-            system_msg = self.system_prompt
+            if settings.SYSTEM_INJECTION_MODE == "dynamic":
+                system_msg = self._load_system_prompt()
+            else:
+                system_msg = self.system_prompt
 
             if settings.SKILLS_INJECTION_MODE == "dynamic":
                 skills_context = "\n" + self.skills_loader.build_skills_summary()
@@ -133,6 +149,13 @@ class Agent:
                 skills_context = skills_context_static
             if skills_context:
                 system_msg += skills_context
+
+            if settings.MEMORY_INJECTION_MODE == "dynamic":
+                memory_context = self.memory_loader.build_memory_summary()
+            else:
+                memory_context = memory_context_static
+            if memory_context:
+                system_msg += memory_context
 
             if settings.PLAN_INJECTION_MODE == "dynamic":
                 active_plans = [p for p in plan_service.list_plans() if p["status"] in ("pending", "running")]
@@ -149,7 +172,10 @@ class Agent:
                     system_msg += plan_context_static
 
             if self.compactor.threshold > 0:
+                prev_len = len(history)
                 history = self.compactor.check_and_compact(history, self.client, self.model)
+                if len(history) != prev_len and on_compact and self.compactor.last_summary:
+                    on_compact(self.compactor.last_summary)
 
             messages = [{"role": "system", "content": system_msg}] + history
 
