@@ -33,9 +33,9 @@ class FeishuClient:
                 .request_body(CreateMessageRequestBody.builder()
                     .receive_id(receive_id)
                     .msg_type("text")
-                    .content(json.dumps({"text": str(content)})
+                    .content(json.dumps({"text": str(content)}))
                     .build())\
-                .build())
+                .build()
 
             response = self.client.im.v1.message.create(request)
 
