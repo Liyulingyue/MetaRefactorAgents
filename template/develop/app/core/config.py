@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     WORKSPACE_ROOT: str = "./workspace"
     ACTIVE_TEMPLATE: str = "mcp_tools_20260613"
 
+    # Gateway Settings (for Agent self-restart)
+    GATEWAY_URL: str = "http://localhost:8000"
+
     # Feishu Settings
     FEISHU_APP_ID: str = ""
     FEISHU_APP_SECRET: str = ""

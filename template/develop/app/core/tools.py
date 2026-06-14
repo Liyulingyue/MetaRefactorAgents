@@ -5,6 +5,7 @@ import json
 from typing import Dict, Any, List, Optional
 from .plan import PlanService
 from .registry import Tool, get_tool_registry
+from .config import settings
 
 _plan_service: Optional[PlanService] = None
 
@@ -171,7 +172,9 @@ class AgentTools:
         向另一个 Agent 发送指令并获取回复。
         MRA 互操作核心：通过 Gateway 转发到目标 Agent 的端口。
         """
-        gateway_url = os.getenv("GATEWAY_URL", "http://localhost:8000")
+        gateway_url = settings.GATEWAY_URL or os.getenv("GATEWAY_URL", "")
+        if not gateway_url:
+            return "Gateway not configured; peer calls are disabled in standalone mode."
         try:
             url = f"{gateway_url}/api/agents/{agent_id}/agent/chat"
             response = requests.post(
@@ -190,7 +193,9 @@ class AgentTools:
     @staticmethod
     def list_peers() -> str:
         """查看当前系统中活跃的同伴 Agent"""
-        gateway_url = os.getenv("GATEWAY_URL", "http://localhost:8000")
+        gateway_url = settings.GATEWAY_URL or os.getenv("GATEWAY_URL", "")
+        if not gateway_url:
+            return "Gateway not configured; peer listing is disabled in standalone mode."
         try:
             response = requests.get(f"{gateway_url}/api/agents")
             if response.status_code == 200:

@@ -117,9 +117,30 @@ class ChatWorker:
             with self._queue_lock:
                 if chat_id in self._queues:
                     self._queues[chat_id].clear()
-            fc.send_text(chat_id, "chat_id", "⏹ 已停止当前任务")
+            if self._notify_gateway_restart():
+                fc.send_text(chat_id, "chat_id", "🔄 已通知网关重启当前 Agent...")
+            else:
+                fc.send_text(chat_id, "chat_id", "⏹ 已停止当前任务（未配置 Gateway，self-restart 不可用）")
             return True
         return False
+
+    def _notify_gateway_restart(self):
+        """通知 Gateway 重启当前 Agent"""
+        import os
+        import requests
+        try:
+            agent_id = os.path.basename(os.getcwd())
+            gateway_url = settings.GATEWAY_URL or os.environ.get("GATEWAY_URL", "")
+            if not gateway_url:
+                print("ℹ️ GATEWAY_URL not configured, skip self-restart notify.")
+                return False
+            url = f"{gateway_url}/api/admin/{agent_id}/self-restart"
+            resp = requests.post(url, timeout=5)
+            print(f"🔌 Gateway restart response: {resp.status_code} - {resp.text}")
+            return resp.status_code < 400
+        except Exception as e:
+            print(f"❌ Failed to notify gateway: {e}")
+            return False
 
     def _worker_loop(self, chat_id: str):
         from app.core.session import get_session_manager

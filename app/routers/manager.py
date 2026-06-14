@@ -1,13 +1,46 @@
 import os
 import signal
 import shutil
+import time
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from app.core.manager import init_agent_workspace, start_agent_process
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 
 router = APIRouter()
+
+
+def _stop_registered_process(processes: Dict[str, Dict[str, Any]], agent_id: str) -> bool:
+    """Stop a registered agent process and remove it from gateway state."""
+    info = processes.get(agent_id)
+    if not info:
+        return False
+
+    pid = info.get("pid")
+    if pid:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+    processes.pop(agent_id, None)
+    return True
+
+
+def _start_and_register_process(
+    processes: Dict[str, Dict[str, Any]],
+    agent_id: str,
+    port: int,
+) -> int:
+    """Start agent process and register it into gateway state."""
+    pid = start_agent_process(agent_id, port)
+    processes[agent_id] = {
+        "port": port,
+        "pid": pid,
+        "status": "Running",
+    }
+    return pid
 
 class CreateAgentRequest(BaseModel):
     agent_id: str
@@ -27,12 +60,7 @@ async def delete_agent(agent_id: str, request: Request):
     """删除 Agent 工作区并停止其进程"""
     processes = request.app.state.processes
 
-    if agent_id in processes:
-        try:
-            os.kill(processes[agent_id]["pid"], signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        del processes[agent_id]
+    _stop_registered_process(processes, agent_id)
 
     workspace_path = f"workspace/{agent_id}"
     if os.path.exists(workspace_path):
@@ -41,7 +69,11 @@ async def delete_agent(agent_id: str, request: Request):
     raise HTTPException(status_code=404, detail="Agent workspace not found")
 
 @router.post("/{agent_id}/start")
-async def start_agent(agent_id: str, request: Request, port: Optional[str] = None):
+async def start_agent(
+    agent_id: str,
+    request: Request,
+    port: Optional[str] = None,
+):
     """启动指定 Agent 的进程并注册到网关"""
     try:
         # 1. 端口与初步准备
@@ -57,15 +89,12 @@ async def start_agent(agent_id: str, request: Request, port: Optional[str] = Non
             while actual_port in existing_ports:
                 actual_port += 1
         
-        # 2. 调用核心启动（现在异步启动并立即返回 PID）
-        pid = start_agent_process(agent_id, actual_port)
-        
-        # 3. 在网关记录“启动中”状态，前端可据此展示 Loading 或尝试连接
-        processes[agent_id] = {
-            "port": actual_port,
-            "pid": pid,
-            "status": "Running" # 先记为启动成功，网关的 /api/agents 会将其推送给前端
-        }
+        # 2. 调用核心启动并在网关登记
+        pid = _start_and_register_process(
+            processes,
+            agent_id,
+            actual_port,
+        )
         
         # 4. 可选：在此处增加一个短暂的等待，尝试探测 Agent 端口是否已经 Listen (暂简略)
         return {
@@ -82,17 +111,36 @@ async def start_agent(agent_id: str, request: Request, port: Optional[str] = Non
 async def stop_agent(agent_id: str, request: Request):
     """停止 Agent 进程"""
     processes = request.app.state.processes
-    if agent_id in processes:
-        try:
-            os.kill(processes[agent_id]["pid"], signal.SIGTERM)
-        except ProcessLookupError:
-            pass # 进程已经不存在了
-        
-        # 从活跃进程中移除，这样前端就不会再尝试连接它了
-        del processes[agent_id]
-        
+    if _stop_registered_process(processes, agent_id):
         return {"status": "stopped", "agent_id": agent_id}
     raise HTTPException(status_code=404, detail="Agent not running")
+
+@router.post("/{agent_id}/self-restart")
+async def agent_self_restart(agent_id: str, request: Request):
+    """Agent 调用此接口通知 Gateway 重启自己"""
+
+    processes = request.app.state.processes
+    if agent_id not in processes:
+        raise HTTPException(status_code=404, detail="Agent not found in gateway")
+
+    port = processes[agent_id]["port"]
+    _stop_registered_process(processes, agent_id)
+    time.sleep(1)
+
+    try:
+        pid = _start_and_register_process(
+            processes,
+            agent_id,
+            port,
+        )
+        return {
+            "status": "restarted",
+            "agent_id": agent_id,
+            "port": port,
+            "pid": pid,
+        }
+    except Exception as e:
+        return {"status": "kill_only", "agent_id": agent_id, "error": str(e)}
 
 @router.get("/{agent_id}/logs")
 async def get_agent_logs(agent_id: str, type: str = "server"):
