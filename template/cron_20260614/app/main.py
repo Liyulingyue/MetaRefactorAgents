@@ -29,8 +29,9 @@ async def startup_event():
         cron_path = Path(settings.CRON_STORAGE_PATH)
 
         async def on_cron_job(job):
-            """Cron job 触发时的回调：运行 Agent 并发送结果到飞书"""
+            """Cron job 触发时的回调：运行 Agent 并按 silent 策略发送结果到飞书"""
             from app.core.cron_service import CronJobSkippedError
+            from app.core.cron_context import SILENT_CRON_CTX, ALERT_SINK_CTX
             from app.core.feishu import feishu_client
             from app.core.agent import Agent
 
@@ -45,20 +46,48 @@ async def startup_event():
                 print(f"Cron: job {job.id} has no session_key, skipping")
                 return
 
+            silent = getattr(job.payload, 'silent', False)
+            notify_on_error = getattr(job.payload, 'notify_on_error', True)
+            alerts: list[str] = []
+
+            silent_token = SILENT_CRON_CTX.set(silent)
+            sink_token = ALERT_SINK_CTX.set(alerts if silent else None)
+            agent_failed = False
             try:
-                result = Agent().run(job.payload.message)
-            except Exception as e:
-                result = f"Agent execution error: {e}"
+                try:
+                    result = Agent().run(job.payload.message)
+                except Exception as e:
+                    result = f"Agent execution error: {e}"
+                    agent_failed = True
+            finally:
+                SILENT_CRON_CTX.reset(silent_token)
+                ALERT_SINK_CTX.reset(sink_token)
 
             fc = feishu_client
-            if fc.is_enabled():
-                fc.send_text(
-                    receive_id=job.payload.session_key,
-                    receive_id_type="chat_id",
-                    content=result or "No response"
-                )
-            else:
-                print(f"Cron: Feishu not configured, result: {result}")
+            if not fc.is_enabled():
+                print(f"Cron: Feishu not configured, result: {result}, alerts: {alerts}")
+                return
+
+            if silent:
+                for alert_msg in alerts:
+                    fc.send_text(
+                        receive_id=job.payload.session_key,
+                        receive_id_type="chat_id",
+                        content=f"[定时任务告警] {job.name}\n{alert_msg}",
+                    )
+                if agent_failed and notify_on_error:
+                    fc.send_text(
+                        receive_id=job.payload.session_key,
+                        receive_id_type="chat_id",
+                        content=f"[定时任务异常] {job.name}\n{result}",
+                    )
+                return
+
+            fc.send_text(
+                receive_id=job.payload.session_key,
+                receive_id_type="chat_id",
+                content=result or "No response"
+            )
 
         cron_service = CronService(cron_path / "jobs.json", on_job=on_cron_job)
         try:

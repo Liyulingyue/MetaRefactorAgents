@@ -52,6 +52,7 @@ def _register_builtin_tools() -> None:
         "delete_cron": AgentTools.delete_cron,
         "enable_cron": AgentTools.enable_cron,
         "disable_cron": AgentTools.disable_cron,
+        "send_alert": AgentTools.send_alert,
     }
     for schema in TOOL_SCHEMAS:
         name = schema["name"]
@@ -303,7 +304,7 @@ class AgentTools:
             return f"Error executing next task: {str(e)}"
 
     @staticmethod
-    def create_cron(name: str, kind: str, message: str, session_key: Optional[str] = None, every_ms: Optional[int] = None, at_ms: Optional[int] = None, expr: Optional[str] = None, tz: Optional[str] = None) -> str:
+    def create_cron(name: str, kind: str, message: str, session_key: Optional[str] = None, every_ms: Optional[int] = None, at_ms: Optional[int] = None, expr: Optional[str] = None, tz: Optional[str] = None, silent: bool = False, notify_on_error: bool = True) -> str:
         """创建一个新的定时任务"""
         try:
             from app.core.cron_service import CronService
@@ -320,7 +321,7 @@ class AgentTools:
 
             service = CronService(Path(settings.CRON_STORAGE_PATH) / "jobs.json")
             schedule = CronSchedule(kind=kind, every_ms=every_ms, at_ms=at_ms, expr=expr, tz=tz)
-            job = service.add_job(name=name, schedule=schedule, message=message, session_key=session_key)
+            job = service.add_job(name=name, schedule=schedule, message=message, session_key=session_key, silent=silent, notify_on_error=notify_on_error)
             return f"Cron job created: ID={job.id}, Name={job.name}"
         except Exception as e:
             return f"Error creating cron: {str(e)}"
@@ -393,6 +394,25 @@ class AgentTools:
         except Exception as e:
             return f"Error disabling cron: {str(e)}"
 
+    @staticmethod
+    def send_alert(message: str) -> str:
+        """Send an alert message to the user from a silent cron task.
+
+        This tool is only effective when the current task is running under a
+        silent cron job. The alert is queued and delivered by the cron runner
+        after the Agent finishes. Outside of a silent cron context this is a
+        no-op.
+        """
+        try:
+            from .cron_context import ALERT_SINK_CTX
+            sink = ALERT_SINK_CTX.get()
+            if sink is None:
+                return "send_alert is only available inside a silent cron job; this call was ignored."
+            sink.append(str(message))
+            return f"Alert queued (total: {len(sink)})"
+        except Exception as e:
+            return f"Error sending alert: {str(e)}"
+
 
 def reload_mcp_tools() -> str:
     """Hot-reload all MCP tools from .mcp.json config. Use after editing MCP server config."""
@@ -412,7 +432,7 @@ def reload_mcp_tools() -> str:
 TOOL_SCHEMAS = [
     {
         "name": "create_cron",
-        "description": "Create a new scheduled cron job that runs an Agent and sends result to Feishu. If session_key is not provided, it will use the current chat session.",
+        "description": "Create a new scheduled cron job that runs an Agent and sends result to Feishu. If session_key is not provided, it will use the current chat session. Set silent=True to suppress the result message on success (alerts via send_alert still work).",
         "parameters": {
             "type": "object",
             "properties": {
@@ -424,6 +444,8 @@ TOOL_SCHEMAS = [
                 "tz": {"type": "string", "description": "Timezone like 'Asia/Shanghai' (for kind='cron')"},
                 "message": {"type": "string", "description": "Prompt for the Agent to execute (will be sent as Agent input)"},
                 "session_key": {"type": "string", "description": "Feishu chat_id to send the Agent's result to. If not provided, uses current session."},
+                "silent": {"type": "boolean", "description": "If true, the Agent's final response is NOT sent to the user on success. Errors are still reported unless notify_on_error is also false. The Agent can call send_alert to push urgent messages even in silent mode.", "default": False},
+                "notify_on_error": {"type": "boolean", "description": "When silent=true, still send a message to the user if the Agent raises an exception. Defaults to true.", "default": True},
             },
             "required": ["name", "kind", "message"]
         }
@@ -469,6 +491,17 @@ TOOL_SCHEMAS = [
                 "job_id": {"type": "string", "description": "The cron job ID to disable"}
             },
             "required": ["job_id"]
+        }
+    },
+    {
+        "name": "send_alert",
+        "description": "Queue an alert message to the user from a silent cron task. The alert is delivered after the Agent finishes. Only effective inside a silent cron job; in normal conversations this is a no-op. Use sparingly for genuine exceptions or situations requiring user attention.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "Alert content to deliver to the user"}
+            },
+            "required": ["message"]
         }
     },
     {

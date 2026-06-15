@@ -24,6 +24,8 @@ class CronPayload:
     origin_channel: Optional[str] = None
     origin_chat_id: Optional[str] = None
     origin_metadata: dict[str, Any] = field(default_factory=dict)
+    silent: bool = False
+    notify_on_error: bool = True
 
 
 @dataclass
@@ -92,6 +94,8 @@ class CronJob:
             "origin_channel": payload_data.get("originChannel"),
             "origin_chat_id": payload_data.get("originChatId"),
             "origin_metadata": payload_data.get("originMetadata", {}),
+            "silent": payload_data.get("silent", False),
+            "notify_on_error": payload_data.get("notifyOnError", True),
         }
 
         return cls(
@@ -125,6 +129,8 @@ class CronJob:
                 "originChannel": self.payload.origin_channel,
                 "originChatId": self.payload.origin_chat_id,
                 "originMetadata": self.payload.origin_metadata,
+                "silent": self.payload.silent,
+                "notifyOnError": self.payload.notify_on_error,
             },
             "state": {
                 "nextRunAtMs": self.state.next_run_at_ms,

@@ -34,6 +34,8 @@ class CreateCronRequest(BaseModel):
     message: str = ""
     session_key: Optional[str] = None
     delete_after_run: bool = False
+    silent: bool = False
+    notify_on_error: bool = True
 
 
 class UpdateCronRequest(BaseModel):
@@ -46,6 +48,8 @@ class UpdateCronRequest(BaseModel):
     message: Optional[str] = None
     session_key: Optional[str] = None
     delete_after_run: Optional[bool] = None
+    silent: Optional[bool] = None
+    notify_on_error: Optional[bool] = None
 
 
 @router.get("/", response_model=dict)
@@ -88,6 +92,8 @@ async def create_cron(req: CreateCronRequest):
         message=req.message,
         session_key=req.session_key,
         delete_after_run=req.delete_after_run,
+        silent=req.silent,
+        notify_on_error=req.notify_on_error,
     )
     return job.to_dict()
 
@@ -149,6 +155,8 @@ async def update_cron(job_id: str, req: UpdateCronRequest):
         message=req.message,
         session_key=req.session_key,
         delete_after_run=req.delete_after_run,
+        silent=req.silent,
+        notify_on_error=req.notify_on_error,
     )
     if result == "not_found":
         raise HTTPException(status_code=404, detail="Job not found")

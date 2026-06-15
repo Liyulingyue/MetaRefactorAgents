@@ -121,6 +121,8 @@ class CronService:
                             origin_channel=j["payload"].get("originChannel"),
                             origin_chat_id=j["payload"].get("originChatId"),
                             origin_metadata=j["payload"].get("originMetadata", {}),
+                            silent=j["payload"].get("silent", False),
+                            notify_on_error=j["payload"].get("notifyOnError", True),
                         ),
                         state=CronJobState(
                             next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
@@ -417,6 +419,8 @@ class CronService:
         message: str = "",
         session_key: str | None = None,
         delete_after_run: bool = False,
+        silent: bool = False,
+        notify_on_error: bool = True,
     ) -> CronJob:
         """Add a new job."""
         _validate_schedule_for_add(schedule)
@@ -431,6 +435,8 @@ class CronService:
                 kind="agent_turn",
                 message=message,
                 session_key=session_key,
+                silent=silent,
+                notify_on_error=notify_on_error,
             ),
             state=CronJobState(next_run_at_ms=_compute_next_run(schedule, now)),
             created_at_ms=now,
@@ -516,6 +522,8 @@ class CronService:
         message: str | None = None,
         session_key: str | None = None,
         delete_after_run: bool | None = None,
+        silent: bool | None = None,
+        notify_on_error: bool | None = None,
     ) -> CronJob | Literal["not_found", "protected"]:
         """Update mutable fields of an existing job."""
         store = self._load_store()
@@ -536,6 +544,10 @@ class CronService:
             job.payload.session_key = session_key
         if delete_after_run is not None:
             job.delete_after_run = delete_after_run
+        if silent is not None:
+            job.payload.silent = silent
+        if notify_on_error is not None:
+            job.payload.notify_on_error = notify_on_error
 
         job.updated_at_ms = _now_ms()
         if job.enabled:

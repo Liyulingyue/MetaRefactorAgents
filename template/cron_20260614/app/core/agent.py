@@ -110,6 +110,9 @@ class Agent:
         all_defs = {d["name"]: d for d in TOOL_SCHEMAS}
         for d in mcp_defs:
             all_defs[d["name"]] = d
+        from .cron_context import SILENT_CRON_CTX
+        if not SILENT_CRON_CTX.get():
+            all_defs.pop("send_alert", None)
         return list(all_defs.values())
 
     def run(self, prompt: str, history: List[Dict] = None, on_update: Optional[Callable[[Dict], None]] = None, on_compact: Optional[Callable[[str], None]] = None):
@@ -170,6 +173,18 @@ class Agent:
             else:
                 if plan_context_static:
                     system_msg += plan_context_static
+
+            from .cron_context import SILENT_CRON_CTX
+            if SILENT_CRON_CTX.get():
+                system_msg += (
+                    "\n\n[SILENT CRON CONTEXT]\n"
+                    "This task is running in silent mode:\n"
+                    "- Your final reply will be discarded and NOT delivered to the user.\n"
+                    "- If something genuinely requires the user's attention (execution failure, data anomaly, "
+                    "missing prerequisites, etc.), call the send_alert(message='...') tool to push an alert.\n"
+                    "- Use send_alert sparingly. Do not call it for routine success messages.\n"
+                    "- When the task completes normally, simply end the turn without writing a summary."
+                )
 
             if self.compactor.threshold > 0:
                 prev_len = len(history)
