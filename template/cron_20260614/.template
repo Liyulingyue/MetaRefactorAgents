@@ -1,5 +1,5 @@
 {
-  "id": "cron_20260614",
+  "id": "20260614130000",
   "name": "cron_20260614",
   "replace": ["app", "run.py", "requirements.txt"],
   "exclude": ["logs", ".backup", "readme.md", ".env.example", "sessions", "cron", "__pycache__"],

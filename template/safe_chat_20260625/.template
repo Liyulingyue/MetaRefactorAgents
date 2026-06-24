@@ -1,0 +1,12 @@
+{
+  "id": "20260625070900",
+  "name": "safe_chat_20260625",
+  "replace": ["app", "run.py", "requirements.txt"],
+  "exclude": ["logs", ".backup", "readme.md", ".env.example", "sessions", "cron", "__pycache__"],
+  "lineage": {
+    "version": "1.0.0",
+    "parent": "20260614130000",
+    "created_at": "2026-06-25",
+    "note": ""
+  }
+}

@@ -1,4 +1,4 @@
-# Cron Template
+# Safe Chat 20260625
 
 基于 `feishu_memory_20260613`，新增 Cron 定时任务功能。
 
@@ -7,7 +7,7 @@
 ```
 default → default_20260406 → planer_20260408 → planer_feishu_20260412
 → skill_system_20260613 → mcp_tools_20260613 → conversation_20260613
-→ feishu_memory_20260613 → cron_20260614  ← 当前
+→ feishu_memory_20260613 → safe_chat_20260625  ← 当前
 ```
 
 ## 核心功能
@@ -112,7 +112,7 @@ GET    /api/v1/cron/status         # 服务状态
 ## 目录结构
 
 ```
-cron_20260614/
+safe_chat_20260625_070613/
 ├── app/
 │   ├── core/
 │   │   ├── agent.py        # Agent 核心，含 system/memory 注入
