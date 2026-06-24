@@ -296,6 +296,10 @@ class CronService:
         """Get the earliest next run time across all jobs."""
         if not self._store:
             return None
+        now = _now_ms()
+        for j in self._store.jobs:
+            if j.enabled and j.schedule.kind == "at" and j.schedule.at_ms and j.schedule.at_ms <= now:
+                return 0
         times = [j.state.next_run_at_ms for j in self._store.jobs
                  if j.enabled and j.state.next_run_at_ms]
         return min(times) if times else None

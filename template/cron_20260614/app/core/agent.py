@@ -115,7 +115,7 @@ class Agent:
             all_defs.pop("send_alert", None)
         return list(all_defs.values())
 
-    def run(self, prompt: str, history: List[Dict] = None, on_update: Optional[Callable[[Dict], None]] = None, on_compact: Optional[Callable[[str], None]] = None):
+    def run(self, prompt: str, history: List[Dict] = None, on_update: Optional[Callable[[Dict], None]] = None, on_compact: Optional[Callable[[str], None]] = None, on_compact_start: Optional[Callable[[], None]] = None):
         if history is None:
             history = []
         
@@ -188,6 +188,10 @@ class Agent:
 
             if self.compactor.threshold > 0:
                 prev_len = len(history)
+                from .autocompact import should_compact
+                if should_compact(history, self.compactor.threshold):
+                    if on_compact_start:
+                        on_compact_start()
                 history = self.compactor.check_and_compact(history, self.client, self.model)
                 if len(history) != prev_len and on_compact and self.compactor.last_summary:
                     on_compact(self.compactor.last_summary)
