@@ -264,4 +264,8 @@ class Agent:
                     if on_update:
                         on_update(history[-1])
             else:
+                # Filter think tags if HIDE_THINK_TAGS is enabled
+                if settings.HIDE_THINK_TAGS:
+                    import re
+                    content = re.sub(r'<think>[\s\S]*?</think>', '', content)
                 return content

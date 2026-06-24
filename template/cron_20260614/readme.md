@@ -28,6 +28,10 @@ default → default_20260406 → planer_20260408 → planer_feishu_20260412
 - `SYSTEM.md` - Agent 身份定义，支持模型自修改
 - `MEMORY.md` - 全局长期记忆，动态注入 system prompt
 
+### 思考标签隐藏（HIDE_THINK_TAGS）
+
+模型 responses 中的 `<think>...</think>` 思考标签默认保留，可通过配置 `HIDE_THINK_TAGS=true` 启用过滤，将思考过程从响应中移除后再返回给用户。
+
 ### 两层记忆架构
 
 - **会话层**：sessions/*.ndjson，按 chat_id 存储，包含压缩摘要
@@ -82,6 +86,9 @@ SYSTEM_INJECTION_MODE=dynamic
 # Cron 定时任务
 CRON_STORAGE_PATH=./cron
 CRON_ENABLED=true
+
+# 思考标签隐藏
+HIDE_THINK_TAGS=false  # true 启用后过滤掉模型的 <think>...</think> 标签
 ```
 
 ## API 端点

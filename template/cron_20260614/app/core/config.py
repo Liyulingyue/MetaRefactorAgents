@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # "dynamic": re-read system prompt on every LLM call (for self-modification)
     SYSTEM_INJECTION_MODE: str = "dynamic"
 
+    # Response Filter Settings
+    # Set to true to automatically remove <think>...</think> tags from model responses
+    # Useful for hiding internal reasoning process from end users
+    HIDE_THINK_TAGS: bool = False
+
     model_config = {
         "env_file": [".env", "../../.env"],
         "case_sensitive": True,
