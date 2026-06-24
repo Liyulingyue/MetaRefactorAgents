@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://mcp.github.com/mcp",
+      "enabled": true,
+      "description": "GitHub integration for issues, PRs, and repositories"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "transport": "stdio",
+      "enabled": true,
+      "description": "Local filesystem access"
+    }
+  }
+}
