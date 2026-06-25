@@ -33,7 +33,7 @@ def verify_sign(encrypt_key: str, timestamp: str, sign: str) -> bool:
     return calculated_sign == sign
 
 
-async def process_message(event: dict, chat_id: str = None) -> str:
+async def process_message(event: dict) -> str:
     message_content = event.get("message", {})
     content = message_content.get("content", "{}")
     
@@ -46,26 +46,8 @@ async def process_message(event: dict, chat_id: str = None) -> str:
     if not text:
         return "Received empty message"
     
-    def on_compact_start():
-        if chat_id:
-            feishu_client.send_text(
-                receive_id=chat_id,
-                receive_id_type="chat_id",
-                content="📝 正在压缩上下文，请稍候..."
-            )
-    
-    def on_compact(summary: str):
-        if chat_id:
-            feishu_client.send_text(
-                receive_id=chat_id,
-                receive_id_type="chat_id",
-                content="✅ 上下文已压缩完成"
-            )
-    
     agent = get_agent()
-    response = await asyncio.to_thread(
-        agent.run, text, on_compact=on_compact, on_compact_start=on_compact_start
-    )
+    response = await asyncio.to_thread(agent.run, text)
     
     return response or "处理完成"
 
@@ -90,10 +72,9 @@ async def feishu_webhook(request: Request):
         if sender.get("sender_type") == "bot":
             return {"code": 0}
         
-        chat_id = message.get("chat_id")
-        response = await process_message(event, chat_id=chat_id)
+        response = await process_message(event)
         feishu_client.send_text(
-            receive_id=chat_id,
+            receive_id=message.get("chat_id"),
             receive_id_type="chat_id",
             content=response
         )

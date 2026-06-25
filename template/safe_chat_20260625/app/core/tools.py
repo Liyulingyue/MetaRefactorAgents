@@ -2,6 +2,8 @@ import subprocess
 import os
 import requests
 import json
+import uuid
+import time
 from typing import Dict, Any, List, Optional
 from .plan import PlanService
 from .registry import Tool, get_tool_registry
@@ -9,11 +11,98 @@ from .config import settings
 
 _plan_service: Optional[PlanService] = None
 
+PROTECTED_PATHS = ["./app/", "./app", "app/"]
+TRUSTED_PATHS_FILE = "./trusted_paths.json"
+
 def get_plan_service() -> PlanService:
     global _plan_service
     if _plan_service is None:
         _plan_service = PlanService()
     return _plan_service
+
+
+def _load_trusted_paths() -> dict:
+    if os.path.exists(TRUSTED_PATHS_FILE):
+        try:
+            with open(TRUSTED_PATHS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"trusted_files": [], "trusted_patterns": []}
+
+
+def _save_trusted_paths(data: dict) -> None:
+    with open(TRUSTED_PATHS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def _is_protected_path(path: str) -> bool:
+    abs_path = os.path.abspath(path)
+    for protected in PROTECTED_PATHS:
+        protected_abs = os.path.abspath(protected)
+        if abs_path.startswith(protected_abs):
+            return True
+    return False
+
+
+def _is_trusted_path(path: str) -> bool:
+    trusted = _load_trusted_paths()
+    abs_path = os.path.abspath(path)
+    for pattern in trusted.get("trusted_files", []):
+        if os.path.abspath(pattern) == abs_path:
+            return True
+    for pattern in trusted.get("trusted_patterns", []):
+        if pattern.endswith("*"):
+            prefix = os.path.abspath(pattern[:-1])
+            if abs_path.startswith(prefix):
+                return True
+    return False
+
+
+PENDING_CONFIRMS: dict[str, dict] = {}
+
+
+def create_confirm_request(tool: str, action: str, path: str, details: str = "") -> str:
+    confirm_id = str(uuid.uuid4())[:8]
+    PENDING_CONFIRMS[confirm_id] = {
+        "tool": tool,
+        "action": action,
+        "path": path,
+        "details": details,
+        "created_at": time.time(),
+        "used": False,
+    }
+    return confirm_id
+
+
+def check_and_confirm_path(tool: str, action: str, path: str, details: str = "") -> str:
+    if not _is_protected_path(path):
+        return ""
+    if _is_trusted_path(path):
+        return ""
+    confirm_id = create_confirm_request(tool, action, path, details)
+    return f"[ACTION_REQUIRES_CONFIRM:confirm_id={confirm_id},tool={tool},path={path},action={action}]"
+
+
+def consume_confirm(confirm_id: str, mode: str) -> tuple[bool, str]:
+    if confirm_id not in PENDING_CONFIRMS:
+        return False, "Confirmation not found or expired"
+    confirm = PENDING_CONFIRMS[confirm_id]
+    if confirm["used"]:
+        return False, "Confirmation already used"
+    confirm["used"] = True
+    if mode == "always":
+        trusted = _load_trusted_paths()
+        path = confirm["path"]
+        abs_path = os.path.abspath(path)
+        if abs_path not in trusted["trusted_files"]:
+            trusted["trusted_files"].append(abs_path)
+            _save_trusted_paths(trusted)
+    return True, "Confirmed"
+
+
+def get_pending_confirm(confirm_id: str) -> dict | None:
+    return PENDING_CONFIRMS.get(confirm_id)
 
 
 def _tool_schema_to_tool(schema: Dict[str, Any], impl_fn) -> Tool:
@@ -87,8 +176,10 @@ class AgentTools:
 
     @staticmethod
     def write_file(file_path: str, content: str) -> str:
+        protected_check = check_and_confirm_path("write_file", "write", file_path)
+        if protected_check:
+            return protected_check
         try:
-            # 安全逻辑：允许操作当前 Agent 目录或其他 Agent 的 workspace 目录
             abs_path = os.path.abspath(file_path)
             os.makedirs(os.path.dirname(abs_path), exist_ok=True)
             with open(abs_path, 'w', encoding='utf-8') as f:
@@ -107,6 +198,9 @@ class AgentTools:
 
     @staticmethod
     def replace_string_in_file(file_path: str, old_string: str, new_string: str) -> str:
+        protected_check = check_and_confirm_path("replace_string_in_file", "replace", file_path)
+        if protected_check:
+            return protected_check
         try:
             abs_path = os.path.abspath(file_path)
             with open(abs_path, 'r', encoding='utf-8') as f:
@@ -122,6 +216,9 @@ class AgentTools:
 
     @staticmethod
     def append_to_file(file_path: str, content: str) -> str:
+        protected_check = check_and_confirm_path("append_to_file", "append", file_path)
+        if protected_check:
+            return protected_check
         try:
             abs_path = os.path.abspath(file_path)
             with open(abs_path, 'a', encoding='utf-8') as f:

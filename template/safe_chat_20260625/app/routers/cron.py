@@ -180,3 +180,10 @@ async def cron_status():
     """Get cron service status."""
     service = get_cron_service()
     return service.status()
+
+
+@router.get("/history", response_model=dict)
+async def cron_history(job_id: str = None, limit: int = 100, offset: int = 0):
+    """Get cron execution history records."""
+    service = get_cron_service()
+    return service.list_run_records(job_id=job_id, limit=limit, offset=offset)
