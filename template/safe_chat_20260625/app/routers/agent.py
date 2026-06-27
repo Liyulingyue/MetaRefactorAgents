@@ -3,7 +3,7 @@
 import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from app.core.agent import Agent
 from app.core.config import settings
@@ -14,9 +14,23 @@ router = APIRouter()
 agent = Agent()
 
 
+class ToolCallFunction(BaseModel):
+    name: str
+    arguments: str
+
+
+class ToolCall(BaseModel):
+    id: str
+    type: str = "function"
+    function: ToolCallFunction
+
+
 class Message(BaseModel):
     role: str
-    content: str
+    content: Optional[str] = None
+    tool_calls: Optional[List[ToolCall]] = None
+    tool_call_id: Optional[str] = None
+    name: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
