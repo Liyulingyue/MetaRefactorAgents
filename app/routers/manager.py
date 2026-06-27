@@ -172,7 +172,7 @@ async def get_agent_thoughts(agent_id: str):
 @router.get("/shared/files")
 async def list_shared_files():
     """获取公共文件区的文件列表"""
-    shared_root = "workspace/.shared"
+    shared_root = "workspace/.shared_files"
     if not os.path.exists(shared_root):
         os.makedirs(shared_root, exist_ok=True)
     
@@ -204,7 +204,7 @@ async def get_agent_thoughts(agent_id: str):
 @router.post("/shared/files/upload")
 async def upload_shared_file(file: UploadFile = File(...)):
     """上传文件到公共文件区"""
-    shared_root = "workspace/.shared"
+    shared_root = "workspace/.shared_files"
     os.makedirs(shared_root, exist_ok=True)
     
     dest_path = os.path.join(shared_root, file.filename)
@@ -225,7 +225,7 @@ from fastapi.responses import FileResponse
 @router.get("/shared/files/download")
 async def download_shared_file(path: str):
     """下载公共文件区的文件"""
-    file_full_path = os.path.join("workspace/.shared", path)
+    file_full_path = os.path.join("workspace/.shared_files", path)
     if not os.path.exists(file_full_path) or not os.path.isfile(file_full_path):
         raise HTTPException(status_code=404, detail="File not found")
     

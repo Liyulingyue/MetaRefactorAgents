@@ -42,10 +42,7 @@ class ConfirmResponse(BaseModel):
 def filter_think_tags(text: str) -> str:
     """Remove <think>...</think> tags from text if HIDE_THINK_TAGS is enabled"""
     if settings.HIDE_THINK_TAGS and text:
-        return re.sub(r'<think>[\s\S]*?
-</think>
-
-', '', text)
+            return re.sub(r'<think>[\s\S]*?<answer>', '', text)
     return text
 
 

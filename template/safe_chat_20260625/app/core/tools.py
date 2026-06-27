@@ -317,8 +317,8 @@ class AgentTools:
         if not os.path.exists(file_path):
             return f"Error: File {file_path} not found"
         
-        # 建立共享目录，确保在根目录级别 (../../workspace/shared_files/)
-        shared_dir = os.path.abspath(os.path.join(os.getcwd(), "../shared_files"))
+        # 建立共享目录，确保在根目录级别 (../../workspace/.shared_files/)
+        shared_dir = os.path.abspath(os.path.join(os.getcwd(), "../.shared_files"))
         os.makedirs(shared_dir, exist_ok=True)
         
         filename = os.path.basename(file_path)
