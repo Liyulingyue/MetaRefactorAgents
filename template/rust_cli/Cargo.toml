@@ -1,0 +1,27 @@
+[package]
+name = "mra-agent"
+version = "1.0.0"
+edition = "2021"
+description = "MetaRefactorAgents - Lightweight CLI Agent for Limited Environments"
+license = "MIT"
+
+[[bin]]
+name = "agent"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+dotenvy = "0.15"
+anyhow = "1"
+tokio-util = { version = "0.7", features = ["compat"] }
+async-trait = "0.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
